@@ -74,11 +74,26 @@
     await carregarReferencia();
   }
 
-  // preço de referência da região: pesquisa da equipe até haver ofertas aceitas suficientes
-  async function carregarReferencia() {
-    const { data } = await sb.rpc("slv_referencia_regiao");
-    estado.ref = Object.fromEntries((data ?? []).map((r) => [r.material_id, r]));
+  // abrangência: "regiao" (lançamento) ou "brasil" (qualquer CEP). Vem do banco: virar a chave não pede publicação.
+  async function carregarAbrangencia() {
+    try { const { data } = await sb.rpc("slv_abrangencia"); if (data) estado.abr = data; } catch {}
+    estado.abr ??= { modo: "regiao", centro: { lat: LOCAL_PADRAO.lat, lng: LOCAL_PADRAO.lng, nome: "Salto/SP" }, raio_km: 50 };
   }
+  const brasil = () => estado.abr?.modo === "brasil";
+  const cidadeCentro = () => (estado.abr?.centro?.nome ?? "Salto/SP").split("/")[0];
+  const textoRegiao = () => `${estado.abr?.centro?.nome ?? "Salto/SP"} e ${estado.abr?.raio_km ?? 50} km em volta`;
+  // nome curto do lugar que a pessoa está vendo: "Salto e região", "Recife e região"
+  const ondeRegiao = () => `${estado.local && !estado.local.padrao ? estado.local.cidade || cidadeCentro() : cidadeCentro()} e região`;
+  // preço de referência perto do CEP: vendas aceitas por perto; sem volume, a pesquisa da equipe (marcada quando é de outra região)
+  async function carregarReferencia() {
+    const l = estado.local ?? LOCAL_PADRAO;
+    let r = await sb.rpc("slv_referencia_local", { p_lat: l.lat, p_lng: l.lng });
+    if (r.error) r = await sb.rpc("slv_referencia_regiao");
+    estado.ref = Object.fromEntries((r.data ?? []).map((x) => [x.material_id, x]));
+    estado.refOutra = (r.data ?? []).some((x) => x.outra_regiao);
+    estado.refChave = `${l.lat.toFixed(2)},${l.lng.toFixed(2)}`;
+  }
+  const avisoRefOutra = () => estado.refOutra ? `<p class="aviso-ref">Ainda não temos o preço de ${esc(estado.local?.cidade || "sua região")}: mostramos a referência de ${esc(estado.abr?.centro?.nome ?? "Salto/SP")} até chegarem as vendas daí.</p>` : "";
   const reais0 = (v) => Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
   const reais2 = (v) => Number(v).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   function faixaItens(itens) {
@@ -101,7 +116,7 @@
   function tabelaReferencia() {
     const M = MAT();
     return `<div class="cartao"><h3>Preço de referência na região</h3>
-      <p class="suave" style="font-size:.9rem">R$ por kg. Começa com a pesquisa da equipe e passa a usar a média das ofertas aceitas quando há volume. Não mostra o preço de nenhum comprador.</p>
+      ${avisoRefOutra()}<p class="suave" style="font-size:.9rem">R$ por kg. Começa com a pesquisa da equipe e passa a usar a média das ofertas aceitas quando há volume. Não mostra o preço de nenhum comprador.</p>
       <table class="ref"><tbody>${Object.values(estado.ref ?? {}).map((r) => `<tr><td>${selo(r.material_id)}</td><td>${esc(M[r.material_id]?.nome ?? "")}${r.fonte === "estimativa" ? ` <small class="suave">(estimativa)</small>` : r.fonte === "ofertas" ? ` <small class="suave">(${r.n_ofertas} vendas)</small>` : ""}</td><td>${reais2(r.minimo)} a ${reais2(r.maximo)}</td></tr>`).join("")}</tbody></table></div>`;
   }
 
@@ -198,7 +213,7 @@
     const raio = L.circle([c.lat, c.lng], { radius: estado.raio * 1000, color: "#82878e", weight: 2, dashArray: "6 6", fill: false, interactive: false }).addTo(mapa);
     const pino = (txt, cor, extra = "") => L.divIcon({ className: "pino-mapa", html: `<span class="pm ${extra}" style="background:${cor}">${txt}</span>`, iconSize: [30, 30], iconAnchor: [15, 15] });
     L.marker([c.lat, c.lng], { icon: pino("você", "#14171c", "pm-eu"), keyboard: false, zIndexOffset: 1000 }).addTo(mapa)
-      .bindTooltip(c.padrao ? "Centro de Salto (use a sua localização ou o CEP)" : c.precisao === "aparelho" ? "Você (localização do aparelho)" : "Você (pelo CEP)");
+      .bindTooltip(c.padrao ? `Centro de ${cidadeCentro()} (use a sua localização ou o CEP)` : c.precisao === "aparelho" ? "Você (localização do aparelho)" : "Você (pelo CEP)");
     const cor = venda ? "#b4461a" : "#1f5c99";
     const limites = [[c.lat, c.lng]];
     p.pontos.forEach((x, i) => {
@@ -240,7 +255,7 @@
   function caixaCep(titulo) {
     const l = estado.local;
     const aberta = !l || l.padrao;
-    const onde = !l || l.padrao ? "Salto e região" : esc([l.bairro, l.cidade].filter(Boolean).join(", "));
+    const onde = !l || l.padrao ? esc(ondeRegiao()) : esc([l.bairro, l.cidade].filter(Boolean).join(", "));
     return `<form class="busca-cep" id="busca-cep" aria-label="${esc(titulo)}">
       <div class="local-linha"><small class="dica">📍 ${l?.precisao === "aparelho" ? "Perto de você: " : aberta ? "Mostrando " : ""}<b>${onde}</b>${aberta ? "" : ` · ${esc(PRECISAO[l.precisao] ?? "")}`}</small>
         ${aberta ? "" : `<button type="button" class="btn-link" id="trocar-local">Trocar</button>`}</div>
@@ -259,7 +274,7 @@
         const d = digitos(i.value);
         if (d.length !== 8) throw new Error("Digite os 8 números do CEP.");
         const r = await consultarCep(d);
-        if (!r.na_regiao) throw new Error(`${r.geo.cidade} ainda fica fora da região de lançamento (Salto e 50 km em volta).`);
+        if (!r.na_regiao) throw new Error(`${r.geo.cidade} ainda fica fora da região de lançamento (${textoRegiao()}).`);
         estado.local = { ...r.geo }; guardarLocal();
         $$(".modal-fundo").forEach((m) => m.remove());
         rota();
@@ -288,16 +303,17 @@
       throw new Error("Não deu para achar a sua localização agora. Digite o CEP.");
     }
     const lat = pos.coords.latitude, lng = pos.coords.longitude;
-    if (distKm(lat, lng, LOCAL_PADRAO.lat, LOCAL_PADRAO.lng) > 50) throw new Error("Você está fora da região de lançamento (Salto e 50 km em volta). Mostramos Salto e região.");
+    if (!brasil() && distKm(lat, lng, LOCAL_PADRAO.lat, LOCAL_PADRAO.lng) > (estado.abr?.raio_km ?? 50)) throw new Error(`Você está fora da região de lançamento (${textoRegiao()}). Mostramos ${cidadeCentro()} e região.`);
+    let uf = null;
     let cidade = null, bairro = null;
     try { // nome do bairro pelo OpenStreetMap (do navegador da pessoa, uma consulta por vez), com limite de 5 s
       const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 5000);
       const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=16&accept-language=pt-BR`, { signal: ctl.signal });
       clearTimeout(t);
-      if (r.ok) { const a = (await r.json()).address ?? {}; cidade = a.city || a.town || a.village || a.municipality || null; bairro = a.suburb || a.neighbourhood || a.quarter || null; }
+      if (r.ok) { const a = (await r.json()).address ?? {}; cidade = a.city || a.town || a.village || a.municipality || null; bairro = a.suburb || a.neighbourhood || a.quarter || null; uf = (a["ISO3166-2-lvl4"] ?? "").replace("BR-", "") || null; }
     } catch { /* sem nome do lugar, vale a cidade mais perto */ }
     if (!cidade) cidade = CIDADES.map(([n, a, b]) => [n, distKm(lat, lng, a, b)]).sort((x, y) => x[1] - y[1])[0][0];
-    estado.local = { lat, lng, cep: "", bairro, cidade, uf: "SP", precisao: "aparelho" };
+    estado.local = { lat, lng, cep: "", bairro, cidade, uf, precisao: "aparelho" };
     guardarLocal();
   }
   async function localAutomatico() {
@@ -367,7 +383,7 @@
   }
 
   // o 📍 do topo: mostra a cidade e abre a troca de local (aparelho ou CEP) por cima da tela
-  function atualizarLocalTopo() { const n = $("#local-topo-nome"); if (n) n.textContent = estado.local?.padrao ? "Salto e região" : (estado.local?.bairro || estado.local?.cidade || "Salto"); }
+  function atualizarLocalTopo() { const n = $("#local-topo-nome"); if (n) n.textContent = estado.local?.padrao ? ondeRegiao() : (estado.local?.bairro || estado.local?.cidade || cidadeCentro()); }
   function abrirTrocaLocal() {
     const fundo = document.createElement("div");
     fundo.className = "modal-fundo";
@@ -459,7 +475,7 @@
   const telaQuantoVale = async (el) => { // registrada em TELAS logo depois que TELAS é criada
     await carregarCatalogo();
     el.innerHTML = `<h1>Quanto vale a sua sucata?</h1>
-      <p>Pelo preço pago no balcão da região de Salto. Gostou do valor? Anuncie e os compradores perto mandam oferta.</p>
+      <p>Pelo preço pago no balcão de ${esc(ondeRegiao())}. Gostou do valor? Anuncie e os compradores perto mandam oferta.</p>${avisoRefOutra()}
       ${calculadoraHTML("Escolha o material e o peso")}
       ${tabelaReferencia()}`;
     ligarCalculadora(el);
@@ -509,12 +525,13 @@
     if (estado.comprador) conta.push(["inicio-comprador", "Minha empresa", "empresa"], ["minhas-ofertas", "Minhas ofertas", "oferta"],
       ["anunciar-compra", "Anunciar que compro", "megafone"], ["minhas-procuras", "Meus anúncios de compra", "meus"], ["o-que-compro", "O que compro", "caixa"]);
     if (logado && (!estado.vendedor || !estado.comprador)) conta.push(["papel", estado.vendedor || estado.comprador ? "Também quero comprar ou vender" : "Começar a vender ou comprar", "anunciar"]);
+    if (logado && (estado.vendedor || estado.comprador)) conta.push(["avaliar", "Avaliar negócios", "oferta"]);
     if (logado) conta.push(["sugestoes", "Sugestões", "conversa"]);
     if (estado.operador) conta.push(["operador", "Operador", "torre"]);
     const sobre = [["apresentacao", "Como funciona", "info"]];
     if (!instalado()) sobre.push(["instalar", "Instalar no celular", "celular"]);
     if (!logado) sobre.push(["entrar", C.demo ? "Entrar (versão de teste)" : "Entrar ou criar cadastro", "chave"]);
-    const item = ([t, r, i]) => `<a href="#/${t}" data-tela="${t}"><span class="mi"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONE[i] ?? ""}</svg></span>${r}${t === "sugestoes" && estado.respostas ? `<span class="badge">${estado.respostas}</span>` : ""}</a>`;
+    const item = ([t, r, i]) => `<a href="#/${t}" data-tela="${t}"><span class="mi"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONE[i] ?? ""}</svg></span>${r}${t === "sugestoes" && estado.respostas ? `<span class="badge">${estado.respostas}</span>` : ""}${t === "avaliar" && estado.paraAvaliar ? `<span class="badge">${estado.paraAvaliar}</span>` : ""}</a>`;
     const grupo = (nome, lista) => lista.length ? `<p class="menu-grupo">${nome}</p>${lista.map(item).join("")}` : "";
     $("#menu").innerHTML = `<div class="menu-cab"><img src="${BASE_APP}logo-negativo.svg" alt="Sucata Livre"></div>`
       + grupo("Vitrine", vitrine) + grupo(estado.comprador && !estado.vendedor ? "Minha empresa" : "Minha conta", conta) + grupo("Sucata Livre", sobre)
@@ -523,6 +540,14 @@
     $("#btn-sair")?.addEventListener("click", async () => { await sb.auth.signOut({ scope: "local" }); location.hash = "#/"; location.reload(); });
     if (!logado) $("#topo-nome").innerHTML = `<a class="btn btn-primario btn-topo" href="#/entrar">Entrar</a>`;
     montarBarra();
+    montarNavTopo();
+  }
+  // menu na horizontal, logo abaixo do topo (como a OLX): os caminhos da vitrine sempre à vista
+  function montarNavTopo() {
+    const nav = $("#nav-topo"); if (!nav) return;
+    const itens = [["inicio", "Início"], ["anuncios", "Material à venda"], ["quem-compra", "Quem compra"], ["preco-do-metal", "Preço da sucata hoje"],
+      ["quanto-vale", "Quanto vale a minha sucata"], ["anunciar", "Anunciar grátis"], ["apresentacao", "Como funciona"]];
+    nav.innerHTML = `<div class="nav-topo-faixa">${itens.map(([t, r]) => `<a href="#/${t}" data-tela="${t}">${r}</a>`).join("")}</div>`;
   }
 
   // barra de app no celular: Comprar, Vender, Anunciar (no meio, amarelo), Meus/Preço e Mais (abre o menu)
@@ -599,12 +624,17 @@
     // um contêiner novo por tela, para os ouvintes de uma tela não sobrarem na seguinte
     const el = document.createElement("div");
     $("#tela").replaceChildren(el);
-    $$("#menu a, #barra-app a").forEach((a) => a.classList.toggle("ativo", a.dataset.tela === nome));
+    $$("#menu a, #barra-app a, #nav-topo a").forEach((a) => a.classList.toggle("ativo", a.dataset.tela === nome));
+    $("#nav-topo a.ativo")?.scrollIntoView({ block: "nearest", inline: "center" });
     atualizarLocalTopo();
     el.innerHTML = `<p class="suave">Carregando…</p>`;
+    // trocou de lugar: o preço de referência é o de perto do novo ponto
+    const l0 = estado.local ?? LOCAL_PADRAO;
+    if (estado.materiais.length && estado.refChave !== `${l0.lat.toFixed(2)},${l0.lng.toFixed(2)}`) await carregarReferencia().catch(() => {});
     window.Acomp.tela(nome);
     try {
       await TELAS[nome](el);
+      if (["inicio", "meus-anuncios", "minhas-ofertas"].includes(nome) && estado.paraAvaliar) el.insertAdjacentHTML("afterbegin", faixaAvaliar());
       montarMapa(el);
       if (estado.sessao && estado.eu) await retornoNaTela(el, nome);
     } catch (e) {
@@ -687,7 +717,7 @@
   const BANNERS = [
     { titulo: "Quanto vale a sua sucata?", texto: "Escolha o material, diga o peso e veja o preço da região na hora.", botao: "Calcular agora", link: "#/quanto-vale", foto: 104 },
     { titulo: "Anuncie grátis. Receba ofertas.", texto: "Sem pôr preço: os compradores perto mandam oferta e você escolhe a melhor.", botao: "Anunciar minha sucata", link: "#/anunciar", foto: 101 },
-    { titulo: "Preço da sucata hoje", texto: "Latinha, cobre, ferro, papelão e PET em Salto e região, mais o dólar do dia. Grátis.", botao: "Ver o preço", link: "#/preco-do-metal", foto: 102 },
+    { titulo: "Preço da sucata hoje", texto: "Latinha, cobre, ferro, papelão e PET perto de você, mais o dólar do dia. Grátis.", botao: "Ver o preço", link: "#/preco-do-metal", foto: 102 },
     { titulo: "Tem ferro-velho ou depósito?", texto: "Veja o material à venda perto e anuncie o que você compra.", botao: "Ver material à venda", link: "#/anuncios", foto: 201 },
   ];
   let rodaBanner = null;
@@ -699,7 +729,7 @@
       sb.rpc("slv_procuras_perto", { p_lat: l.lat, p_lng: l.lng, p_raio_km: 25, p_familia: null }),
     ]);
     const anuncios = an.data ?? [], compradores = pr.data ?? [];
-    const onde = l.padrao ? "Salto e região" : (l.bairro || l.cidade);
+    const onde = l.padrao ? ondeRegiao() : (l.bairro || l.cidade);
     const fotoCat = (id) => fotoMaterial(id) ? `<img src="${esc(fotoMaterial(id))}" alt="" loading="lazy">` : selo(id);
     const miniAnuncio = (a) => {
       const mp = materialPrincipal(a.itens), f = faixaItens(a.itens);
@@ -793,7 +823,7 @@
     const M = MAT(), d = new Date();
     const linhas = BOLETIM_MATERIAIS.map((id) => estado.ref?.[id]).filter(Boolean)
       .map((r) => `${M[r.material_id]?.nome ?? ""}: R$ ${reais2(r.minimo)} a ${reais2(r.maximo)} o kg`);
-    return [`📊 *Preço da Sucata · Salto e região*`, `Semana de ${d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}`, ``, ...linhas, ``,
+    return [`📊 *Preço da Sucata · ${ondeRegiao()}*`, `Semana de ${d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}`, ``, ...linhas, ``,
       dolar ? `Dólar (Banco Central): R$ ${reais2(dolar.valor)}` : null,
       mercado?.metais?.length ? `Lá fora em ${nomeMes(mercado.metais[0].mes)} (Banco Mundial): ${mercado.metais.filter((m) => ["Alumínio", "Cobre", "Minério de ferro"].includes(m.nome)).map((m) => `${m.nome.toLowerCase()} ${pct(m.var_mes)}`).join(", ")} no mês` : null,
       ``, `Quanto vale a sua? Calcule e receba oferta de vários compradores, grátis:`, linkCanal()].filter((x) => x !== null).join("\n");
@@ -805,7 +835,7 @@
     el.innerHTML = `
       <div class="preco-metal">
         <h1>Preço da sucata hoje</h1>
-        <p class="secao-sub">Salto e região · R$ por kg pago no balcão. Grátis, sem cadastro.</p>
+        <p class="secao-sub">${esc(ondeRegiao())} · R$ por kg pago no balcão. Grátis, sem cadastro.</p>${avisoRefOutra()}
         <div class="pm-topo">
           <div class="cartao pm-dolar" id="pm-dolar"><span class="rot">Dólar hoje</span><b>…</b><small class="suave">Banco Central (PTAX)</small></div>
           <div class="cartao pm-chamada"><b>Quanto vale a sua?</b><span>Diga o peso e veja na hora. Depois anuncie e receba oferta de vários compradores.</span>
@@ -868,6 +898,7 @@
     el.innerHTML = `
       <p><a href="#/quem-compra">← Quem compra perto</a></p>
       <div class="cab"><h1 style="margin:0">${esc(c.nome)}</h1></div>
+      ${c.exemplo ? "" : `<div id="rep-comprador"><span data-rep-u="${esc(id)}"></span></div>`}
       <div class="tags" style="margin:8px 0 6px">${c.exemplo ? `<span class="etiqueta exemplo">Exemplo</span>` : `<span class="etiqueta ok">CNPJ verificado</span>`}
         ${ab === null ? "" : `<span class="etiqueta ${ab ? "ok" : "ruim"}">${ab ? "Aberto agora" : "Fechado agora"}</span>`}
         ${c.faz_coleta || busca > 0 ? `<span class="etiqueta">Busca no local${busca > 0 ? ` até ${String(busca).replace(".0", "")} km` : ""}</span>` : `<span class="etiqueta">Só no balcão</span>`}
@@ -902,6 +933,10 @@
           <span class="suave">${esc([ct.endereco, ct.bairro, ct.cidade].filter(Boolean).join(", "))}. Pergunte o preço de hoje.</span></div>`;
       });
     });
+    preencherRep(el).then((reps) => {
+      const r = reps.find((x) => x.papel === "comprador"); if (!r?.comentarios?.length) return;
+      $("#rep-comprador", el)?.insertAdjacentHTML("beforeend", `<div class="comentarios">${r.comentarios.map((k) => `<p class="comentario"><span class="estrela">★</span> ${k.nota} · “${esc(k.texto)}” <small class="suave">${ha(k.quando)}</small></p>`).join("")}</div>`);
+    });
   };
 
   TELAS.apresentacao = async (el) => {
@@ -917,7 +952,7 @@
         <p class="suave">Digite seu CEP e veja no mapa quem compra perto de você, com horário e WhatsApp.</p></div>
       <div class="cartao"><h3>É comprador (ferro-velho, depósito, recicladora)?</h3>
         <p class="suave">Cadastre a empresa pelo CNPJ, veja os anúncios perto e anuncie o que você compra: quem vende perto acha você. Grátis no lançamento.</p></div>
-      <p class="suave">Começamos pela região de Salto/SP (até 50 km: Itu, Indaiatuba, Sorocaba, Jundiaí, Campinas). Fora dela, você entra na lista de espera.</p>
+      <p class="suave">${brasil() ? "Funciona no Brasil inteiro: tudo é pelo seu CEP, do que está perto de você." : `Começamos por ${esc(textoRegiao())}. Fora dela, você entra na lista de espera, e o Sucata Livre já está pronto para o Brasil inteiro.`}</p>
       <div class="acoes">
         <a class="btn btn-primario" href="#/anuncios">Ver os anúncios</a>
         ${estado.sessao ? "" : `<a class="btn btn-secundario" href="#/entrar">Entrar ou criar cadastro</a>`}
@@ -1157,7 +1192,7 @@
           ${avisoExemplos(lista)}
           ${lista.length ? `<div class="lista-compra">${lista.map((c, i) => { const ab = abertoAgora(c.horario); return `
             <article class="cartao comprador">${fotoMaterial(c.materiais?.[0]) ? `<div class="faixa-foto">${capaIlustrativa(c.materiais[0])}</div>` : ""}<div class="comprador-topo"><span class="pino">${i + 1}</span>
-              <div class="cn"><span class="tags">${c.reserva ? "" : `<span class="etiqueta compra">Compra</span>`}${c.exemplo ? `<span class="etiqueta exemplo">Exemplo</span>` : ""}</span><h3><a class="nome-comprador" href="#/comprador?id=${esc(c.comprador_id)}">${esc(c.nome)}</a></h3><span class="suave">${esc([c.bairro, c.cidade].filter(Boolean).join(", "))}</span></div>
+              <div class="cn"><span class="tags">${c.reserva ? "" : `<span class="etiqueta compra">Compra</span>`}${c.exemplo ? `<span class="etiqueta exemplo">Exemplo</span>` : ""}</span><h3><a class="nome-comprador" href="#/comprador?id=${esc(c.comprador_id)}">${esc(c.nome)}</a></h3>${c.exemplo ? "" : `<span data-rep-u="${esc(c.comprador_id)}"></span>`}<span class="suave">${esc([c.bairro, c.cidade].filter(Boolean).join(", "))}</span></div>
               <span class="km">≈ ${km(c.distancia_km)} km</span></div>
               <div class="cods" aria-label="Compra ${esc(nomesMateriais(c.materiais))}">${(c.materiais ?? []).map(selo).join("")}</div>
               ${c.observacao ? `<p class="suave">“${esc(c.observacao)}”</p>` : ""}
@@ -1176,6 +1211,7 @@
       </div>`;
     ligarCaixaCep(el);
     ligarFiltros(el);
+    preencherRep(el);
     el.addEventListener("click", (e) => {
       const b = e.target.closest("[data-contato], [data-procura]"); if (!b) return;
       if (!precisa("vendedor", "quem-compra")) return;
@@ -1372,14 +1408,15 @@
       const publicado = !card.querySelector("[data-retirar]") ? false : true;
       const itensAnuncio = lista.find((x) => x.id === id)?.itens;
       card.querySelector(".ofertas-lugar").innerHTML = `<div class="estimativa">${textoEstimativa(itensAnuncio)}</div>` + ((of ?? []).length ? `<div class="lista">${of.map((o) => `
-        <div class="oferta ${o.status === "aceita" ? "aceita" : ""}"><div class="cab"><div><b>${esc(o.comprador_nome)}</b><br>
+        <div class="oferta ${o.status === "aceita" ? "aceita" : ""}"><div class="cab"><div><b>${esc(o.comprador_nome)}</b> <span data-rep-o="${o.id}"></span><br>
           <small class="suave">≈ ${km(o.distancia_km)} km · ${o.faz_coleta ? "busca no local" : "você leva"} · ${ha(o.atualizado_em)}</small></div>
           <span class="valor">${reais(o.valor)}</span></div>
           <div>${selloOferta(Number(o.valor), itensAnuncio)}</div>
-          ${o.status === "aceita" ? `<div class="zap">Oferta aceita. WhatsApp do comprador: <b>${esc(o.telefone ? fmtTel(o.telefone) : "não informado")}</b><span class="suave">Combine a retirada e a pesagem.</span></div>`
+          ${o.status === "aceita" ? `<div class="zap">Oferta aceita. WhatsApp do comprador: <b>${esc(o.telefone ? fmtTel(o.telefone) : "não informado")}</b><span class="suave">Combine a retirada e a pesagem.</span><a class="btn btn-secundario btn-avaliar" href="#/avaliar">Avaliar o comprador</a></div>`
             : o.status === "nao_aceita" ? `<small class="suave">Não aceita</small>`
             : publicado ? `<div class="acoes"><button type="button" class="btn btn-primario" data-aceitar="${o.id}">Aceitar esta oferta</button></div>` : ""}</div>`).join("")}</div>`
         : `<p class="suave">Ainda sem ofertas. Os compradores perto já veem o seu anúncio.</p>`);
+      preencherRep(card);
     }
 
     el.addEventListener("click", (e) => {
@@ -1569,6 +1606,7 @@
                 : capaIlustrativa(materialPrincipal(a.itens)) ? capaIlustrativa(materialPrincipal(a.itens)) + `<span class="selos-sobre">${selosItens(a.itens)}</span>` : selosItens(a.itens)}<span class="dist">≈ ${km(a.distancia_km)} km</span>${(a.fotos?.length ?? 0) > 1 ? `<span class="n-fotos">📷 ${a.fotos.length}</span>` : ""}</span>
               <span class="txt"><b>${esc(tituloItens(a.itens))}</b>
                 <small class="suave">${esc([a.bairro, a.cidade].filter(Boolean).join(", "))} · ${ha(a.criado_em)}</small>
+                ${a.exemplo ? "" : `<span data-rep-a="${a.id}"></span>`}
                 ${(() => { const f = faixaItens(a.itens); return f ? `<small class="estima">Na região vale <b>${reais0(f[0])} a ${reais0(f[1])}</b></small>` : ""; })()}
                 <span class="tags">${a.exemplo ? `<span class="etiqueta exemplo">Exemplo</span>` : ""}${etiquetasCaracteristicas({ estado: a.estado, embalagem: a.embalagem, volumes: a.volumes })}${a.pode_buscar ? `<span class="etiqueta ok">Pode buscar</span>` : `<span class="etiqueta">Leva até você</span>`}
                   ${a.tem_item_risco ? `<span class="etiqueta dinheiro">Com declaração de origem</span>` : ""}
@@ -1583,6 +1621,7 @@
       <div id="detalhe"></div>`;
     ligarCaixaCep(el);
     ligarFiltros(el);
+    preencherRep(el);
     el.addEventListener("click", (e) => {
       const b = e.target.closest("[data-abrir]"); if (!b) return;
       abrirAnuncio(lista.find((a) => String(a.id) === b.dataset.abrir));
@@ -1725,13 +1764,100 @@
           <p class="suave">${esc([o.bairro, o.cidade].filter(Boolean).join(", "))} · ${ha(o.atualizado_em)}</p>
           <p>Sua oferta: <b class="valor">${reais(o.valor)}</b></p>
           ${o.situacao === "aceita" ? `<div class="zap">${esc(o.vendedor_nome ?? "Quem vende")} aceitou. WhatsApp: <b>${esc(o.vendedor_telefone ? fmtTel(o.vendedor_telefone) : "não informado")}</b>
-            <span class="suave">Combine a retirada e pese na balança. Pague o valor combinado.</span></div>` : ""}
+            <span class="suave">Combine a retirada e pese na balança. Pague o valor combinado.</span><a class="btn btn-secundario btn-avaliar" href="#/avaliar">Avaliar quem vendeu</a></div>` : ""}
           ${o.situacao === "enviada" ? `<div class="acoes"><button type="button" class="btn btn-perigo" data-retirar="${o.id}">Retirar oferta</button></div>` : ""}
         </article>`).join("")}</div>`
         : `<div class="cartao vazio">Você ainda não mandou oferta. <a href="#/anuncios">Ver anúncios perto</a>.</div>`}`;
     el.addEventListener("click", (e) => {
       const b = e.target.closest("[data-retirar]"); if (!b) return;
       ocupado(b, async () => { const { error: er } = await sb.rpc("slv_retirar_oferta", { p_oferta: Number(b.dataset.retirar) }); if (er) throw er; avisar("Oferta retirada.", "ok"); window.Acomp.desfez("oferta"); ir("minhas-ofertas"); });
+    });
+  };
+
+  // ── avaliação mútua: depois do negócio, quem vende avalia quem compra e vice-versa (às cegas) ──
+  const um = (v) => Number(v).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  function repHTML(r) {
+    if (!r || !r.n) return `<span class="rep novo">Novo no Sucata Livre</span>`;
+    return `<span class="rep"><span class="estrela" aria-hidden="true">★</span> ${um(r.media)} <small>(${r.n} avaliaç${r.n === 1 ? "ão" : "ões"})</small>${r.selo ? ` <b class="selo-rep">✓ ${esc(r.selo)}</b>` : ""}</span>`;
+  }
+  // preenche os lugares marcados na tela: data-rep-u (comprador), data-rep-a (quem vende o anúncio), data-rep-o (quem fez a oferta)
+  async function preencherRep(el) {
+    const pegar = (attr) => [...new Set($$(`[${attr}]`, el).map((x) => x.getAttribute(attr)).filter(Boolean))];
+    const us = pegar("data-rep-u"), as = pegar("data-rep-a").map(Number), os = pegar("data-rep-o").map(Number);
+    const [ru, ra, ro] = await Promise.all([
+      us.length ? sb.rpc("slv_reputacoes", { p_ids: us }) : { data: [] },
+      as.length ? sb.rpc("slv_rep_anuncios", { p_anuncios: as }) : { data: [] },
+      os.length && estado.sessao ? sb.rpc("slv_rep_ofertas", { p_ofertas: os }) : { data: [] },
+    ]).catch(() => [{ data: [] }, { data: [] }, { data: [] }]);
+    const mu = Object.fromEntries((ru.data ?? []).filter((r) => r.papel === "comprador").map((r) => [r.usuario_id, r]));
+    const ma = Object.fromEntries((ra.data ?? []).map((r) => [String(r.anuncio_id), r]));
+    const mo = Object.fromEntries((ro.data ?? []).map((r) => [String(r.oferta_id), r]));
+    $$("[data-rep-u]", el).forEach((x) => (x.outerHTML = repHTML(mu[x.getAttribute("data-rep-u")])));
+    $$("[data-rep-a]", el).forEach((x) => (x.outerHTML = repHTML(ma[x.getAttribute("data-rep-a")])));
+    $$("[data-rep-o]", el).forEach((x) => (x.outerHTML = repHTML(mo[x.getAttribute("data-rep-o")])));
+    return ru.data ?? [];
+  }
+  async function contarParaAvaliar() {
+    if (!estado.sessao || !estado.eu) return 0;
+    const { data } = await sb.rpc("slv_para_avaliar");
+    estado.paraAvaliar = (data ?? []).length;
+    return estado.paraAvaliar;
+  }
+  const faixaAvaliar = () => estado.paraAvaliar
+    ? `<a class="faixa-avaliar" href="#/avaliar">⭐ Você tem ${estado.paraAvaliar} negócio${estado.paraAvaliar > 1 ? "s" : ""} para avaliar. Leva 10 segundos e ajuda todo mundo a negociar com confiança.</a>` : "";
+  const PERGUNTAS = {
+    comprador: ["Pagou o valor combinado?", "Pesou certo, na sua frente?"],
+    vendedor: ["O material era como no anúncio?", "Cumpriu o combinado (horário, retirada)?"],
+  };
+  TELAS.avaliar = async (el) => {
+    await carregarCatalogo();
+    const { data, error } = await sb.rpc("slv_para_avaliar");
+    if (error) throw error;
+    const lista = data ?? [];
+    estado.paraAvaliar = lista.length; montarMenu();
+    el.innerHTML = `<h1>Avaliar negócios</h1>
+      <p class="suave">A sua nota só aparece para os outros quando a outra pessoa também avaliar, ou depois de 14 dias. Assim ninguém dá nota por vingança.</p>
+      ${lista.length ? `<div class="lista">${lista.map((n) => `
+        <form class="cartao form-avaliar" data-oferta="${n.oferta_id}" data-papel="${n.avaliar_papel}">
+          <div class="cab"><h3>${n.avaliar_papel === "comprador" ? "Quem comprou" : "Quem vendeu"}: ${esc(n.outro_nome ?? "")}</h3><span class="valor">${reais(n.valor)}</span></div>
+          <p class="suave">${esc(tituloItens(n.itens ?? []))} · aceita ${ha(n.aceita_em)}</p>
+          <p class="pergunta">O negócio aconteceu?</p>
+          <div class="chips" data-campo="aconteceu"><button type="button" class="chip" data-v="1">Sim</button><button type="button" class="chip" data-v="0">Não aconteceu</button></div>
+          <div class="so-se-aconteceu" hidden>
+            <p class="pergunta">Que nota você dá?</p>
+            <div class="estrelas" data-campo="nota" role="radiogroup" aria-label="Nota de 1 a 5">${[1, 2, 3, 4, 5].map((i) => `<button type="button" class="estrela-btn" data-v="${i}" role="radio" aria-checked="false" aria-label="${i} estrela${i > 1 ? "s" : ""}">★</button>`).join("")}</div>
+            ${PERGUNTAS[n.avaliar_papel].map((q, i) => `<p class="pergunta">${q}</p>
+              <div class="chips" data-campo="q${i + 1}"><button type="button" class="chip" data-v="1">Sim</button><button type="button" class="chip" data-v="0">Não</button></div>`).join("")}
+            <label class="pergunta" for="com-${n.oferta_id}">Quer deixar um comentário? <small class="suave">(opcional, aparece para todos)</small></label>
+            <input type="text" id="com-${n.oferta_id}" maxlength="200" placeholder="Ex.: pagou na hora, pesou certinho">
+          </div>
+          <div class="acoes"><button type="submit" class="btn btn-primario">Enviar avaliação</button></div>
+        </form>`).join("")}</div>`
+        : `<div class="cartao vazio">Nenhum negócio esperando avaliação. Quando uma oferta for aceita, ele aparece aqui.</div>`}`;
+    el.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-campo] [data-v]"); if (!b) return;
+      const grupo = b.closest("[data-campo]"), form = b.closest("form");
+      grupo.dataset.valor = b.dataset.v;
+      if (grupo.dataset.campo === "nota") $$(".estrela-btn", grupo).forEach((x) => { x.classList.toggle("acesa", Number(x.dataset.v) <= Number(b.dataset.v)); x.setAttribute("aria-checked", String(x === b)); });
+      else $$(".chip", grupo).forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+      if (grupo.dataset.campo === "aconteceu") $(".so-se-aconteceu", form).hidden = b.dataset.v !== "1";
+    });
+    el.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const f = e.target, val = (c) => $(`[data-campo="${c}"]`, f)?.dataset.valor;
+      ocupado(f.querySelector("[type=submit]"), async () => {
+        if (val("aconteceu") == null) throw new Error("Diga se o negócio aconteceu.");
+        const aconteceu = val("aconteceu") === "1";
+        if (aconteceu && !val("nota")) throw new Error("Toque nas estrelas para dar a nota.");
+        const { data: r, error: er } = await sb.rpc("slv_avaliar", {
+          p_oferta: Number(f.dataset.oferta), p_aconteceu: aconteceu, p_nota: aconteceu ? Number(val("nota")) : null,
+          p_q1: val("q1") == null ? null : val("q1") === "1", p_q2: val("q2") == null ? null : val("q2") === "1",
+          p_comentario: aconteceu ? $("input", f).value : null,
+        });
+        if (er) throw er;
+        f.outerHTML = `<div class="cartao destaque"><b>Obrigado!</b> ${r?.revelada ? "As duas avaliações já aparecem." : "A sua nota aparece quando a outra pessoa avaliar, ou em 14 dias."}</div>`;
+        estado.paraAvaliar = Math.max(0, (estado.paraAvaliar ?? 1) - 1); montarMenu();
+      });
     });
   };
 
@@ -1846,6 +1972,8 @@
   async function aoEntrar() {
     $("#btn-menu").hidden = false;
     await Promise.all([carregarCatalogo(), carregarPerfil()]);
+    await contarParaAvaliar().catch(() => {});
+    montarMenu();
     window.Acomp.mostrarBotao(true);
   }
 
@@ -1858,6 +1986,7 @@
   (async () => {
     const { data } = await sb.auth.getSession();
     estado.sessao = data.session;
+    await carregarAbrangencia();
     $("#btn-menu").hidden = false;
     if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
     // volta do Google ou do Facebook: tira o ?code= do endereço

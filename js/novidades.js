@@ -1,6 +1,16 @@
 // Sucata Livre · o que mudou em cada versão (aparece depois que a pessoa clica em Atualizar).
 window.NOVIDADES = [
   {
+    versao: "2026-11-02-21",
+    data: "02/11/2026",
+    itens: [
+      "Menu na horizontal, logo abaixo do topo: Material à venda, Quem compra, Preço da sucata hoje e Anunciar, sempre à vista.",
+      "Avaliação dos dois lados: depois do negócio, quem vende avalia quem compra e quem compra avalia quem vende. A nota só aparece quando os dois avaliam.",
+      "Estrelas e selos nos anúncios e nos compradores: “Paga certo” e “Material como anunciado”.",
+      "Pronto para o Brasil inteiro: tudo é pelo seu CEP, e o preço de referência é o de perto de você.",
+    ],
+  },
+  {
     versao: "2026-11-02-20",
     data: "02/11/2026",
     itens: [

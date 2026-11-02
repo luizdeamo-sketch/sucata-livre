@@ -658,3 +658,30 @@ body { background: var(--fundo); }
 .faisca { width: 100%; height: 32px; }
 .faisca polyline { fill: none; stroke: var(--compra, #1f5c99); stroke-width: 2; }
 .faisca circle { fill: var(--compra, #1f5c99); }
+
+/* menu na horizontal, logo abaixo do topo (como a OLX) */
+.nav-topo { background: #fff; border-bottom: 1px solid #d3d5ce; }
+.nav-topo-faixa { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; padding: 6px max(12px, env(safe-area-inset-left, 0px)); }
+.nav-topo-faixa::-webkit-scrollbar { display: none; }
+.nav-topo a { flex: none; padding: 9px 14px; border-radius: 999px; font-weight: 800; font-size: .95rem; color: var(--texto); text-decoration: none; white-space: nowrap; }
+.nav-topo a:hover { background: #f1f2ee; }
+.nav-topo a.ativo { background: var(--grafite, #14171c); color: #fff; }
+.nav-topo a[data-tela="anunciar"] { color: var(--oxido); }
+.nav-topo a[data-tela="anunciar"].ativo { color: #fff; }
+@media (min-width: 1100px) { .nav-topo-faixa { justify-content: center; } }
+
+/* reputação: estrelas, selo e comentários */
+.rep { display: inline-flex; align-items: center; gap: 4px; font-size: .9rem; font-weight: 700; color: var(--texto); }
+.rep small { font-weight: 400; color: var(--suave); }
+.rep .estrela, .comentario .estrela { color: #e0a100; }
+.rep.novo { color: var(--suave); font-weight: 600; font-size: .85rem; }
+.selo-rep { background: #e2f1e5; color: #2f7a43; border-radius: 999px; padding: 2px 8px; font-size: .8rem; }
+.comentarios { display: grid; gap: 4px; margin: 6px 0 10px; }
+.comentario { margin: 0; font-size: .95rem; }
+.faixa-avaliar { display: block; background: #fff4cf; border: 1.5px solid #e0b100; color: var(--texto); border-radius: 12px; padding: 12px 14px; margin-bottom: 14px; font-weight: 700; text-decoration: none; }
+.btn-avaliar { margin-top: 8px; }
+.form-avaliar .pergunta { font-weight: 700; margin: 12px 0 6px; display: block; }
+.estrelas { display: flex; gap: 6px; }
+.estrela-btn { font-size: 2.2rem; line-height: 1; background: none; border: 0; color: #c9ccc4; cursor: pointer; padding: 2px 4px; min-width: 44px; min-height: 44px; }
+.estrela-btn.acesa { color: #e0a100; }
+.aviso-ref { background: #fff4cf; border-radius: 10px; padding: 8px 12px; font-size: .92rem; margin: 6px 0; }
