@@ -129,7 +129,6 @@
     ]);
     estado.eu = u.data; estado.vendedor = v.data; estado.comprador = c.data;
     estado.operador = !!u.data?.papeis?.includes("operador") && u.data.status === "ativo";
-    $("#topo-nome").textContent = estado.eu?.nome ?? "";
     if (!estado.local || estado.local.padrao) {
       const cep = estado.comprador?.cep ?? estado.vendedor?.cep;
       if (cep) {
@@ -147,7 +146,7 @@
     const { count } = await sb.from("slv_sugestoes").select("id", { count: "exact", head: true })
       .eq("autor_id", estado.sessao.user.id).not("resposta", "is", null).is("retorno", null);
     estado.respostas = count ?? 0;
-    const b = $("#menu-badge"); b.hidden = !estado.respostas; b.textContent = estado.respostas;
+    montarMenu(); // o número de respostas aparece no botão Minha conta
   }
 
   // CEP: o navegador pega a coordenada na AwesomeAPI (IP da pessoa) e o servidor confere.
@@ -517,9 +516,7 @@
   // ── menu e navegação ─────────────────────────────────────────────────────
   function montarMenu() {
     const logado = !!estado.sessao;
-    // três grupos: a vitrine (aberta a todos), a conta (cada papel) e o Sucata Livre; ícones de traço, como na barra
-    const vitrine = [["inicio", "Início", "inicio"], ["anuncios", "Material à venda", "comprar"], ["quem-compra", "Quem compra", "vender"], ["preco-do-metal", "Preço da sucata hoje", "preco"], ["quanto-vale", "Quanto vale a minha sucata", "preco"]];
-    if (estado.vendedor || !estado.comprador) vitrine.push(["anunciar", estado.vendedor ? "Anunciar" : "Anunciar minha sucata", "anunciar"]);
+    // a gaveta "Minha conta": só o que é de quem entrou. A vitrine fica na faixa de cima (#nav-topo).
     const conta = [];
     if (estado.vendedor) conta.push(["meus-anuncios", "Meus anúncios", "meus"], ["cadastro", "Meu cadastro", "pessoa"]);
     if (estado.comprador) conta.push(["inicio-comprador", "Minha empresa", "empresa"], ["minhas-ofertas", "Minhas ofertas", "oferta"],
@@ -528,17 +525,19 @@
     if (logado && (estado.vendedor || estado.comprador)) conta.push(["avaliar", "Avaliar negócios", "oferta"]);
     if (logado) conta.push(["sugestoes", "Sugestões", "conversa"]);
     if (estado.operador) conta.push(["operador", "Operador", "torre"]);
-    const sobre = [["apresentacao", "Como funciona", "info"]];
-    if (!instalado()) sobre.push(["instalar", "Instalar no celular", "celular"]);
-    if (!logado) sobre.push(["entrar", C.demo ? "Entrar (versão de teste)" : "Entrar ou criar cadastro", "chave"]);
     const item = ([t, r, i]) => `<a href="#/${t}" data-tela="${t}"><span class="mi"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONE[i] ?? ""}</svg></span>${r}${t === "sugestoes" && estado.respostas ? `<span class="badge">${estado.respostas}</span>` : ""}${t === "avaliar" && estado.paraAvaliar ? `<span class="badge">${estado.paraAvaliar}</span>` : ""}</a>`;
     const grupo = (nome, lista) => lista.length ? `<p class="menu-grupo">${nome}</p>${lista.map(item).join("")}` : "";
-    $("#menu").innerHTML = `<div class="menu-cab"><img src="${BASE_APP}logo-negativo.svg" alt="Sucata Livre"></div>`
-      + grupo("Vitrine", vitrine) + grupo(estado.comprador && !estado.vendedor ? "Minha empresa" : "Minha conta", conta) + grupo("Sucata Livre", sobre)
+    $("#menu").innerHTML = `<div class="menu-cab"><b>${esc(estado.eu?.nome ?? "Minha conta")}</b><button type="button" class="menu-fechar" aria-label="Fechar">✕</button></div>`
+      + grupo(estado.comprador && !estado.vendedor ? "Minha empresa" : "Minha conta", conta)
       + (logado ? `<button type="button" id="btn-sair"><span class="mi"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONE.sair}</svg></span>Sair</button>` : "")
       + `<p class="menu-rodape">Quem junta, vende.${C.demo ? " · Versão de teste" : ""}</p>`;
     $("#btn-sair")?.addEventListener("click", async () => { await sb.auth.signOut({ scope: "local" }); location.hash = "#/"; location.reload(); });
-    if (!logado) $("#topo-nome").innerHTML = `<a class="btn btn-primario btn-topo" href="#/entrar">Entrar</a>`;
+    const avisos = (estado.respostas ?? 0) + (estado.paraAvaliar ?? 0);
+    $("#topo-nome").innerHTML = logado
+      ? `<button type="button" class="btn-conta" id="btn-conta"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONE.pessoa}</svg><span>Minha conta</span>${avisos ? `<span class="badge">${avisos}</span>` : ""}</button>`
+      : `<a class="btn btn-primario btn-topo" href="#/entrar">Entrar</a>`;
+    $("#btn-conta")?.addEventListener("click", () => abrirMenu($("#menu").hidden));
+    $(".menu-fechar")?.addEventListener("click", () => abrirMenu(false));
     montarBarra();
     montarNavTopo();
   }
@@ -547,6 +546,7 @@
     const nav = $("#nav-topo"); if (!nav) return;
     const itens = [["inicio", "Início"], ["anuncios", "Material à venda"], ["quem-compra", "Quem compra"], ["preco-do-metal", "Preço da sucata hoje"],
       ["quanto-vale", "Quanto vale a minha sucata"], ["anunciar", "Anunciar grátis"], ["apresentacao", "Como funciona"]];
+    if (!instalado()) itens.push(["instalar", "Instalar no celular"]);
     nav.innerHTML = `<div class="nav-topo-faixa">${itens.map(([t, r]) => `<a href="#/${t}" data-tela="${t}">${r}</a>`).join("")}</div>`;
   }
 
@@ -576,12 +576,12 @@
     const itens = [["inicio", "Início", "inicio"], ["anuncios", "Comprar", "comprar"], ["anunciar", "Anunciar", "anunciar"], ["quem-compra", "Vender", "vender"]];
     $("#barra-app").innerHTML = itens.map(([t, r, i]) => `<a href="#/${t}" data-tela="${t}" class="${t === "anunciar" ? "barra-anunciar" : ""}">
         <svg viewBox="0 0 24 24" aria-hidden="true">${ICONE[i]}</svg><span>${r}</span></a>`).join("")
-      + `<button type="button" id="barra-mais"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONE.mais}</svg><span>Mais</span></button>`;
-    $("#barra-mais").addEventListener("click", () => abrirMenu($("#menu").hidden));
+      + (estado.sessao ? `<button type="button" id="barra-mais"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONE.pessoa}</svg><span>Conta</span></button>`
+        : `<a href="#/entrar" data-tela="entrar"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONE.pessoa}</svg><span>Entrar</span></a>`);
+    $("#barra-mais")?.addEventListener("click", () => abrirMenu($("#menu").hidden));
   }
 
   function abrirMenu(abrir) { $("#menu").hidden = !abrir; $("#menu-fundo").hidden = !abrir; }
-  $("#btn-menu").addEventListener("click", () => abrirMenu($("#menu").hidden));
   $("#busca-topo")?.addEventListener("submit", (e) => { e.preventDefault(); const t = $("#busca-texto").value.trim(); if (t) buscar(t); else ir("anuncios"); });
   // no celular a dica inteira não cabe: fica a versão curta
   if (matchMedia("(max-width: 520px)").matches && $("#busca-texto")) $("#busca-texto").placeholder = "Latinha, cobre, fio…";
@@ -1970,7 +1970,6 @@
 
   // ── início ───────────────────────────────────────────────────────────────
   async function aoEntrar() {
-    $("#btn-menu").hidden = false;
     await Promise.all([carregarCatalogo(), carregarPerfil()]);
     await contarParaAvaliar().catch(() => {});
     montarMenu();
@@ -1987,7 +1986,6 @@
     const { data } = await sb.auth.getSession();
     estado.sessao = data.session;
     await carregarAbrangencia();
-    $("#btn-menu").hidden = false;
     if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
     // volta do Google ou do Facebook: tira o ?code= do endereço
     if (/[?&](code|error)=/.test(location.search)) {

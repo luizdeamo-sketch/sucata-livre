@@ -1,6 +1,14 @@
 // Sucata Livre · o que mudou em cada versão (aparece depois que a pessoa clica em Atualizar).
 window.NOVIDADES = [
   {
+    versao: "2026-11-02-22",
+    data: "02/11/2026",
+    itens: [
+      "Menos um botão: o menu lateral saiu. Tudo da vitrine está na faixa de cima.",
+      "As suas coisas (anúncios, ofertas, cadastro, avaliar) ficam no botão Minha conta, no topo. No celular, em Conta, na barra de baixo.",
+    ],
+  },
+  {
     versao: "2026-11-02-21",
     data: "02/11/2026",
     itens: [
