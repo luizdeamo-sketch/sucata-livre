@@ -645,3 +645,16 @@ body { background: var(--fundo); }
 .preco-metal > *, .pm-topo > *, .pm-grade > * { min-width: 0; }
 .preco-metal .secao-sub { white-space: normal; }
 .pm-texto { overflow-wrap: anywhere; }
+/* lá fora: média mensal internacional (Banco Mundial) */
+.pm-fora { display: grid; gap: 8px; }
+.pm-fora .secao-cab h2 { margin: 0; }
+.pm-fora-grade { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+.pm-12m { font-size: .85rem; }
+.pm-fora-item { display: grid; gap: 4px; padding: 14px; min-width: 0; }
+.pm-fora-valor { font: 900 1.6rem/1 var(--f-titulo); font-variant-numeric: tabular-nums; }
+.pm-fora-valor small { font: 600 .85rem var(--f-texto); color: var(--suave); }
+.pm-var { font-weight: 700; font-size: .9rem; }
+.pm-var.sobe { color: #2f7a43; } .pm-var.cai { color: #a3261d; }
+.faisca { width: 100%; height: 32px; }
+.faisca polyline { fill: none; stroke: var(--compra, #1f5c99); stroke-width: 2; }
+.faisca circle { fill: var(--compra, #1f5c99); }

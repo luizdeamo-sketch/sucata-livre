@@ -1,6 +1,13 @@
 // Sucata Livre · o que mudou em cada versão (aparece depois que a pessoa clica em Atualizar).
 window.NOVIDADES = [
   {
+    versao: "2026-11-02-20",
+    data: "02/11/2026",
+    itens: [
+      "Preço da sucata hoje agora mostra também o mercado lá fora: alumínio, cobre, zinco, níquel, chumbo, estanho e minério de ferro, com a média do mês e quanto subiu ou caiu. Fonte: Banco Mundial.",
+    ],
+  },
+  {
     versao: "2026-11-02-19",
     data: "02/11/2026",
     itens: [

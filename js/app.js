@@ -775,13 +775,27 @@
       return { valor: v[0].cotacaoVenda, quando: v[0].dataHoraCotacao, semana: semana.cotacaoVenda };
     } catch { return null; } finally { clearTimeout(t); }
   }
+  const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+  const nomeMes = (m) => `${MESES[Number(m.slice(5)) - 1]}/${m.slice(2, 4)}`; // "2026M09" → "set/26"
+  async function mercadoBM() {
+    try { const r = await fetch(`${BASE_APP}data/mercado.json?v=${C.versao}`); return r.ok ? await r.json() : null; } catch { return null; }
+  }
+  const pct = (v) => `${v >= 0 ? "+" : "−"}${reais1(Math.abs(v))}%`;
+  const reais1 = (v) => Number(v).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  function faisca(serie) { // linha dos últimos 13 meses
+    const W = 120, H = 32, mn = Math.min(...serie), mx = Math.max(...serie), k = mx > mn ? (H - 6) / (mx - mn) : 0;
+    const pts = serie.map((v, i) => `${(i * W / (serie.length - 1)).toFixed(1)},${(H - 3 - (v - mn) * k).toFixed(1)}`);
+    const [ux, uy] = pts[pts.length - 1].split(",");
+    return `<svg class="faisca" viewBox="0 0 ${W} ${H}" aria-hidden="true"><polyline points="${pts.join(" ")}"/><circle cx="${ux}" cy="${uy}" r="3"/></svg>`;
+  }
   const linkCanal = () => `${location.origin}${location.pathname}?origem=canal#/preco-do-metal`;
-  function textoBoletim(dolar) {
+  function textoBoletim(dolar, mercado) {
     const M = MAT(), d = new Date();
     const linhas = BOLETIM_MATERIAIS.map((id) => estado.ref?.[id]).filter(Boolean)
       .map((r) => `${M[r.material_id]?.nome ?? ""}: R$ ${reais2(r.minimo)} a ${reais2(r.maximo)} o kg`);
     return [`📊 *Preço da Sucata · Salto e região*`, `Semana de ${d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}`, ``, ...linhas, ``,
       dolar ? `Dólar (Banco Central): R$ ${reais2(dolar.valor)}` : null,
+      mercado?.metais?.length ? `Lá fora em ${nomeMes(mercado.metais[0].mes)} (Banco Mundial): ${mercado.metais.filter((m) => ["Alumínio", "Cobre", "Minério de ferro"].includes(m.nome)).map((m) => `${m.nome.toLowerCase()} ${pct(m.var_mes)}`).join(", ")} no mês` : null,
       ``, `Quanto vale a sua? Calcule e receba oferta de vários compradores, grátis:`, linkCanal()].filter((x) => x !== null).join("\n");
   }
   TELAS["preco-do-metal"] = async (el) => {
@@ -802,6 +816,8 @@
           <span class="pm-valor">R$ ${reais2(r.minimo)} <small>a</small> ${reais2(r.maximo)}</span></a>`).join("")}</div>
         <p class="suave pm-fonte">Começa com a pesquisa de balcão da equipe e passa a usar a média das vendas do Sucata Livre quando há volume. Não mostra o preço de nenhum comprador.
           Cotação internacional: <a href="https://www.lme.com/" target="_blank" rel="noopener">site da LME</a>.</p>
+        <section class="pm-fora" id="pm-fora" hidden><div class="secao-cab"><h2>Lá fora</h2></div>
+          <p class="secao-sub" id="pm-fora-sub"></p><div class="pm-fora-grade" id="pm-fora-grade"></div></section>
         <div class="cartao pm-boletim">
           <h2>Boletim da semana</h2>
           <p class="suave">Pronto para mandar no WhatsApp, no seu grupo ou para um cliente.</p>
@@ -809,8 +825,17 @@
           <div class="acoes"><button type="button" class="btn btn-primario" id="pm-zap">Mandar no WhatsApp</button><button type="button" class="btn btn-secundario" id="pm-copiar">Copiar texto</button></div>
         </div>
       </div>`;
-    let dolar = null;
-    const pintar = () => { $("#pm-texto", el).textContent = textoBoletim(dolar); };
+    let dolar = null, mercado = null;
+    const pintar = () => { $("#pm-texto", el).textContent = textoBoletim(dolar, mercado); };
+    mercadoBM().then((m) => {
+      if (!m?.metais?.length) return;
+      mercado = m; pintar();
+      $("#pm-fora-sub", el).innerHTML = `Média de ${esc(nomeMes(m.metais[0].mes))} no mercado internacional. Fonte: <a href="${esc(m.link)}" target="_blank" rel="noopener">Banco Mundial (Pink Sheet)</a>, licença CC BY 4.0.`;
+      $("#pm-fora-grade", el).innerHTML = m.metais.map((x) => `<div class="cartao pm-fora-item"><b>${esc(x.nome)}</b>
+        <span class="pm-fora-valor">${Number(x.valor).toLocaleString("pt-BR", { maximumFractionDigits: x.valor < 1000 ? 1 : 0 })} <small>${esc(x.unidade)}</small></span>
+        <span class="pm-var ${x.var_mes >= 0 ? "sobe" : "cai"}">${x.var_mes >= 0 ? "▲" : "▼"} ${pct(x.var_mes)} no mês</span><span class="suave pm-12m">${pct(x.var_12m)} em 12 meses</span>${faisca(x.serie)}</div>`).join("");
+      $("#pm-fora", el).hidden = false;
+    });
     pintar();
     dolarPtax().then((d) => {
       dolar = d; const box = $("#pm-dolar", el);
@@ -820,9 +845,9 @@
       box.querySelector("small").textContent = `Banco Central (PTAX) · ${d.quando.slice(8, 10)}/${d.quando.slice(5, 7)} · ${varia >= 0 ? "▲" : "▼"} ${reais2(Math.abs(varia))}% na semana`;
       pintar();
     });
-    $("#pm-zap", el).addEventListener("click", () => { location.href = `https://wa.me/?text=${encodeURIComponent(textoBoletim(dolar))}`; });
+    $("#pm-zap", el).addEventListener("click", () => { location.href = `https://wa.me/?text=${encodeURIComponent(textoBoletim(dolar, mercado))}`; });
     $("#pm-copiar", el).addEventListener("click", async () => {
-      try { await navigator.clipboard.writeText(textoBoletim(dolar)); avisar("Texto copiado. É só colar no WhatsApp.", "ok"); }
+      try { await navigator.clipboard.writeText(textoBoletim(dolar, mercado)); avisar("Texto copiado. É só colar no WhatsApp.", "ok"); }
       catch { const s = getSelection(), r = document.createRange(); r.selectNodeContents($("#pm-texto", el)); s.removeAllRanges(); s.addRange(r); avisar("Texto selecionado: copie e cole no WhatsApp.", "info"); }
     });
   };
