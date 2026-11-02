@@ -77,6 +77,18 @@ body {
 h1, h2, h3 { font-family: var(--f-texto); text-wrap: balance; }
 h1 { font-family: var(--f-titulo); font-size: 2.25rem; line-height: 1.06; font-weight: 800; letter-spacing: .005em; margin: 0 0 10px; }
 .chamada-marca { font: 900 clamp(3.4rem, 9vw, 7.5rem)/.92 var(--f-titulo); text-transform: uppercase; margin: 0 0 14px; }
+/* vitrine aberta: frase da marca para quem ainda não entrou + seletor do lado (vender ou comprar) */
+.vitrine-topo { margin-bottom: 14px; }
+.vitrine-topo p { margin: 0; max-width: 46em; }
+.chamada-vitrine { font-size: clamp(2.6rem, 6vw, 4.5rem); margin-bottom: 8px !important; }
+.lado { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 14px; max-width: 720px; }
+.lado-op { display: grid; gap: 2px; padding: 10px 14px; border: 1px solid var(--linha-forte); border-radius: 14px; background: #fff;
+  color: var(--texto); text-decoration: none; font-weight: 700; font-size: 1.05rem; line-height: 1.2; }
+.lado-op small { font-weight: 400; font-size: .85rem; color: var(--suave); }
+.lado-op.vende[aria-current] { background: var(--oxido); border-color: var(--oxido); color: #fff; }
+.lado-op.compra[aria-current] { background: var(--compra); border-color: var(--compra); color: #fff; }
+.lado-op[aria-current] small { color: #fff; }
+.btn-topo { min-height: 40px; padding: 6px 16px; }
 h2 { font-size: 1.25rem; font-weight: 700; margin: 24px 0 8px; }
 h3 { font-size: 1.06rem; font-weight: 700; margin: 0 0 6px; }
 body { font-variant-numeric: tabular-nums; }

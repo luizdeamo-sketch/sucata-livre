@@ -1,6 +1,15 @@
 // Sucata Livre · o que mudou em cada versão (aparece depois que a pessoa clica em Atualizar).
 window.NOVIDADES = [
   {
+    versao: "2026-11-02-3",
+    data: "02/11/2026",
+    itens: [
+      "Vitrine aberta: qualquer pessoa vê os anúncios de venda e de compra, sem entrar.",
+      "O cadastro só é pedido na hora de fazer negócio: anunciar, mandar oferta ou ver o WhatsApp.",
+      "Depois de entrar, você volta para onde estava.",
+    ],
+  },
+  {
     versao: "2026-11-02-2",
     data: "02/11/2026",
     itens: [

@@ -25,10 +25,12 @@
   };
   const PRECISAO = { rua: "localização pela rua", bairro: "localização pelo bairro (aproximada)", cidade: "localização pelo centro da cidade (aproximada)" };
 
+  // sem CEP, a vitrine abre no centro de Salto (como a OLX abre na cidade): quem chega já vê anúncios
+  const LOCAL_PADRAO = { lat: -23.2003, lng: -47.2869, cep: "", bairro: "", cidade: "Salto", uf: "SP", precisao: "cidade", padrao: true };
   const estado = {
     sessao: null, eu: null, vendedor: null, comprador: null, operador: false,
     familias: [], materiais: [], params: {}, respostas: 0,
-    local: null,          // {lat, lng, cep, bairro, cidade, precisao} usado nas listas e no mapa
+    local: { ...LOCAL_PADRAO }, // {lat, lng, cep, bairro, cidade, precisao} usado nas listas e no mapa
     familiaFiltro: null,  // filtro de material das listas
     raio: 10,             // filtro de distância das listas (km)
     abrir: null,          // id de anúncio/oferta para abrir na próxima tela
@@ -109,13 +111,14 @@
     estado.eu = u.data; estado.vendedor = v.data; estado.comprador = c.data;
     estado.operador = !!u.data?.papeis?.includes("operador") && u.data.status === "ativo";
     $("#topo-nome").textContent = estado.eu?.nome ?? "";
-    if (!estado.local) {
+    if (!estado.local || estado.local.padrao) {
       const cep = estado.comprador?.cep ?? estado.vendedor?.cep;
       if (cep) {
         const { data: g } = await sb.from("slv_cep_geo").select("cep, lat, lng, bairro, cidade, precisao").eq("cep", cep).maybeSingle();
         if (g) estado.local = { ...g };
       }
     }
+    if (!estado.local) estado.local = { ...LOCAL_PADRAO };
     await contarRespostas();
     montarMenu();
   }
@@ -188,7 +191,8 @@
       <label for="cep-busca">${titulo}</label>
       <div class="busca-linha"><input type="text" id="cep-busca" inputmode="numeric" placeholder="Digite seu CEP" value="${l ? esc(fmtCEP(l.cep)) : ""}">
         <button type="submit" class="btn btn-primario">Buscar</button></div>
-      <small class="dica">${l ? `📍 ${esc([l.bairro, l.cidade].filter(Boolean).join(", "))} · ${esc(PRECISAO[l.precisao] ?? "")}` : "Digite o CEP para ver quem está perto."}</small>
+      <small class="dica">${l?.padrao ? "📍 Mostrando Salto e região. Digite o seu CEP para ver o que está mais perto de você."
+        : l ? `📍 ${esc([l.bairro, l.cidade].filter(Boolean).join(", "))} · ${esc(PRECISAO[l.precisao] ?? "")}` : "Digite o CEP para ver quem está perto."}</small>
     </form>`;
   }
   function ligarCaixaCep(el) {
@@ -227,18 +231,23 @@
 
   // ── menu e navegação ─────────────────────────────────────────────────────
   function montarMenu() {
-    const itens = [];
-    if (estado.vendedor) itens.push(["quem-compra", "📍 Quem compra perto"], ["anunciar", "➕ Anunciar"], ["meus-anuncios", "📋 Meus anúncios"]);
-    if (estado.comprador) itens.push(["inicio-comprador", "🏢 Minha empresa"], ["anuncios", "🔎 Anúncios perto"], ["minhas-ofertas", "💬 Minhas ofertas"],
+    const logado = !!estado.sessao;
+    // a vitrine é aberta: os dois primeiros itens valem para todo mundo, com ou sem cadastro
+    const itens = [["anuncios", "🔎 Material à venda"], ["quem-compra", "📍 Quem compra"]];
+    if (estado.vendedor) itens.push(["anunciar", "➕ Anunciar"], ["meus-anuncios", "📋 Meus anúncios"]);
+    if (estado.comprador) itens.push(["inicio-comprador", "🏢 Minha empresa"], ["minhas-ofertas", "💬 Minhas ofertas"],
       ["anunciar-compra", "📣 Anunciar que compro"], ["minhas-procuras", "📋 Meus anúncios de compra"], ["o-que-compro", "📦 O que compro"]);
     if (estado.vendedor) itens.push(["cad-vendedor", "👤 Meu cadastro"]);
-    if (!estado.vendedor || !estado.comprador) itens.push(["papel", estado.vendedor || estado.comprador ? "➕ Também quero comprar ou vender" : "🏠 Começar"]);
-    itens.push(["sugestoes", "🗨️ Sugestões"], ["apresentacao", "ℹ️ Como funciona"]);
+    if (logado && (!estado.vendedor || !estado.comprador)) itens.push(["papel", estado.vendedor || estado.comprador ? "➕ Também quero comprar ou vender" : "🏠 Começar a vender ou comprar"]);
+    if (logado) itens.push(["sugestoes", "🗨️ Sugestões"]);
+    itens.push(["apresentacao", "ℹ️ Como funciona"]);
+    if (!logado) itens.push(["entrar", "🔑 Entrar ou criar cadastro"]);
     if (estado.operador) itens.push(["operador", "🗼 Operador"]);
     $("#menu").innerHTML = itens.map(([t, r]) =>
       `<a href="#/${t}" data-tela="${t}">${r}${t === "sugestoes" && estado.respostas ? `<span class="badge">${estado.respostas}</span>` : ""}</a>`).join("")
-      + `<button type="button" id="btn-sair">🚪 Sair</button>`;
-    $("#btn-sair").addEventListener("click", async () => { await sb.auth.signOut({ scope: "local" }); location.hash = "#/"; location.reload(); });
+      + (logado ? `<button type="button" id="btn-sair">🚪 Sair</button>` : "");
+    $("#btn-sair")?.addEventListener("click", async () => { await sb.auth.signOut({ scope: "local" }); location.hash = "#/"; location.reload(); });
+    if (!logado) $("#topo-nome").innerHTML = `<a class="btn btn-secundario btn-topo" href="#/entrar">Entrar</a>`;
   }
 
   function abrirMenu(abrir) { $("#menu").hidden = !abrir; $("#menu-fundo").hidden = !abrir; }
@@ -247,18 +256,41 @@
   $("#menu").addEventListener("click", (e) => e.target.closest("a") && abrirMenu(false));
 
   function telaInicial() {
-    if (!estado.sessao) return "apresentacao";
-    if (estado.comprador) return "anuncios";
-    if (estado.vendedor) return "quem-compra";
-    return "papel";
+    if (estado.vendedor && !estado.comprador) return "quem-compra";
+    return "anuncios";
   }
 
-  const PUBLICAS = new Set(["apresentacao", "entrar"]);
+  // vitrine aberta: ver é livre; fazer negócio (WhatsApp, oferta, anúncio) pede cadastro
+  const PUBLICAS = new Set(["anuncios", "quem-compra", "apresentacao", "entrar"]);
+  const VOLTA = "slv-voltar";
+  const guardarVolta = (tela) => { try { sessionStorage.setItem(VOLTA, tela); } catch {} };
+  const lerVolta = () => { try { return sessionStorage.getItem(VOLTA); } catch { return null; } };
+  const limparVolta = () => { try { sessionStorage.removeItem(VOLTA); } catch {} };
+  // devolve true quando a pessoa já pode fazer o negócio; senão leva para entrar ou para o cadastro e volta depois
+  function precisa(papel, voltar) {
+    guardarVolta(voltar);
+    if (!estado.sessao) {
+      avisar(papel === "comprador" ? "Para fazer oferta, entre e cadastre a sua empresa. É grátis." : "Para fazer negócio, entre com o seu celular. É grátis.", "info");
+      ir("entrar"); return false;
+    }
+    if (papel === "vendedor" && !estado.vendedor) { ir("cad-vendedor"); return false; }
+    if (papel === "comprador" && !estado.comprador) { ir("cad-comprador"); return false; }
+    if (papel === "comprador" && estado.comprador.status !== "aprovado") { ir("inicio-comprador"); return false; }
+    limparVolta(); return true;
+  }
+  // seletor do lado (vender ou comprar) no alto da vitrine, e a frase da marca para quem ainda não entrou
+  const lado = (atual) => `${estado.sessao ? "" : `<section class="vitrine-topo"><p class="chamada-marca chamada-vitrine">Quem junta, vende.</p>
+      <p>Anúncios de sucata e reciclável de Salto e região, sem preço. Ver é livre; para fazer negócio, crie seu cadastro grátis.</p></section>`}
+    <nav class="lado" aria-label="O que você quer fazer">
+      <a href="#/quem-compra" class="lado-op vende" ${atual === "quem-compra" ? 'aria-current="page"' : ""}>Quero vender<small>quem compra perto</small></a>
+      <a href="#/anuncios" class="lado-op compra" ${atual === "anuncios" ? 'aria-current="page"' : ""}>Quero comprar<small>material à venda</small></a>
+    </nav>`;
 
   async function rota() {
     let nome = (location.hash.replace(/^#\/?/, "").split("?")[0]) || telaInicial();
     if (!TELAS[nome]) nome = telaInicial();
-    if (!estado.sessao && !PUBLICAS.has(nome)) nome = "entrar";
+    if (!estado.sessao && !PUBLICAS.has(nome)) { guardarVolta(nome); nome = "entrar"; }
+    if (nome === lerVolta()) limparVolta();
     // um contêiner novo por tela, para os ouvintes de uma tela não sobrarem na seguinte
     const el = document.createElement("div");
     $("#tela").replaceChildren(el);
@@ -318,16 +350,17 @@
         <p class="suave">Cadastre a empresa pelo CNPJ, veja os anúncios perto e anuncie o que você compra: quem vende perto acha você. Grátis no lançamento.</p></div>
       <p class="suave">Começamos pela região de Salto/SP (até 50 km: Itu, Indaiatuba, Sorocaba, Jundiaí, Campinas). Fora dela, você entra na lista de espera.</p>
       <div class="acoes">
-        ${estado.sessao ? `<a class="btn btn-primario" href="#/${telaInicial()}">Continuar</a>`
-                        : `<a class="btn btn-primario" href="#/entrar">Entrar com meu telefone</a>`}
+        <a class="btn btn-primario" href="#/anuncios">Ver os anúncios</a>
+        ${estado.sessao ? "" : `<a class="btn btn-secundario" href="#/entrar">Entrar ou criar cadastro</a>`}
       </div>`;
   };
 
   TELAS.entrar = async (el) => {
     if (estado.sessao) return ir(telaInicial());
     el.innerHTML = `
-      <h1>Entrar</h1>
-      <p>Mandamos um código por SMS para o seu celular. Não precisa de senha.</p>
+      <h1>Entrar ou criar cadastro</h1>
+      <p>Ver os anúncios é livre. O cadastro é para fazer negócio: anunciar, mandar oferta e ver o WhatsApp. É grátis.</p>
+      <p class="suave">Mandamos um código por SMS para o seu celular. Não precisa de senha.</p>
       <div class="cartao" id="passo-tel">
         <label for="tel">Seu celular com DDD</label>
         <input type="tel" id="tel" inputmode="numeric" autocomplete="tel-national" placeholder="(11) 99999-9999">
@@ -338,7 +371,8 @@
         <input type="text" id="cod" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000">
         <div class="acoes"><button class="btn btn-primario" id="btn-entrar">Entrar</button>
         <button class="btn btn-secundario" id="btn-voltar">Trocar o número</button></div>
-      </div>`;
+      </div>
+      <p><a href="#/${esc(lerVolta() && PUBLICAS.has(lerVolta()) ? lerVolta() : "anuncios")}">← Voltar aos anúncios</a></p>`;
     const tel = $("#tel", el);
     tel.addEventListener("input", () => (tel.value = fmtTel(tel.value)));
     let fone = null;
@@ -357,7 +391,7 @@
       if (error) throw new Error("Código errado ou vencido. Peça outro.");
       estado.sessao = data.session;
       await aoEntrar();
-      ir(telaInicial());
+      ir(lerVolta() ?? telaInicial());
     }));
   };
 
@@ -427,13 +461,12 @@
         return;
       }
       estado.local = null;
-      await carregarPerfil(); avisar("Cadastro feito! 🎉", "ok"); ir("quem-compra");
+      await carregarPerfil(); avisar("Cadastro feito! 🎉", "ok"); ir(lerVolta() ?? "quem-compra");
     }));
   };
 
   // ── quem vende: quem compra perto ───────────────────────────────────────
   TELAS["quem-compra"] = async (el) => {
-    if (!estado.vendedor) return ir("cad-vendedor");
     await carregarCatalogo();
     const M = MAT();
     const l = estado.local;
@@ -451,6 +484,7 @@
       }
     }
     el.innerHTML = `
+      ${lado("quem-compra")}
       ${caixaCep("Quem compra sucata perto de você?")}
       ${filtrosHTML()}
       <div class="cartao chamada"><h3>Tem material parado? Anuncie em 1 minuto</h3>
@@ -481,6 +515,7 @@
     ligarFiltros(el);
     el.addEventListener("click", (e) => {
       const b = e.target.closest("[data-contato], [data-procura]"); if (!b) return;
+      if (!precisa("vendedor", "quem-compra")) return;
       ocupado(b, async () => {
         const { data: ct, error: er } = b.dataset.procura
           ? await sb.rpc("slv_contato_procura", { p_procura: Number(b.dataset.procura) })
@@ -494,7 +529,7 @@
 
   // ── quem vende: anunciar em 3 passos ────────────────────────────────────
   TELAS.anunciar = async (el) => {
-    if (!estado.vendedor) return ir("cad-vendedor");
+    if (!precisa("vendedor", "anunciar")) return;
     await carregarCatalogo();
     const R = { passo: 1, itens: {}, fotos: [], cep: estado.vendedor.cep, geo: null, pode_buscar: true, risco: null, declarou: false };
     const { data: riscos } = await sb.from("slv_itens_risco").select("*").order("id");
@@ -745,7 +780,7 @@
       estado.local = null;
       await carregarPerfil();
       avisar(data.status === "aprovado" ? "Cadastro aprovado! 🎉" : "Cadastro enviado para análise.", "ok");
-      ir("o-que-compro");
+      ir(data.status === "aprovado" ? (lerVolta() ?? "o-que-compro") : "inicio-comprador");
     }));
   };
 
@@ -807,9 +842,7 @@
   };
 
   TELAS.anuncios = async (el) => {
-    const c = estado.comprador;
-    if (!c) return ir("cad-comprador");
-    if (c.status !== "aprovado") return ir("inicio-comprador");
+    const podeOfertar = estado.comprador?.status === "aprovado";
     await carregarCatalogo();
     const l = estado.local;
     const { data, error } = l ? await sb.rpc("slv_anuncios_perto", { p_lat: l.lat, p_lng: l.lng, p_raio_km: estado.raio, p_familia: estado.familiaFiltro })
@@ -819,6 +852,7 @@
     const fotos = await urlsFotos(lista.map((a) => a.fotos?.[0]).filter(Boolean));
     let fi = 0; lista.forEach((a) => { if (a.fotos?.[0]) a._foto = fotos[fi++]; });
     el.innerHTML = `
+      ${lado("anuncios")}
       ${caixaCep("Que sucata está à venda perto de você?")}
       ${filtrosHTML()}
       <div class="cartao chamada"><h3>Você compra sucata? Anuncie o que procura</h3>
@@ -861,15 +895,20 @@
         <p>Total: <b class="num">${String(totalKg(a.itens)).replace(".", ",")} kg</b>, conferidos na balança na hora.</p>
         <div class="estimativa">${textoEstimativa(a.itens)}</div>
         ${a.tem_item_risco ? `<div class="cartao alerta"><p>Quem vende marcou material de risco (fio, cabo ou peça de ferro) e declarou a origem. Confira antes de comprar.</p></div>` : ""}
-        <h3>Sua oferta</h3>
+        ${podeOfertar ? `<h3>Sua oferta</h3>
         <p class="suave">🔒 Só quem vende vê a sua oferta. Os outros compradores não veem.</p>
         <div class="campos"><div><label for="oferta">Quanto você paga por tudo? (R$)</label>
           <input type="text" id="oferta" inputmode="decimal" value="${a.minha_oferta && a.minha_situacao === "enviada" ? esc(String(a.minha_oferta).replace(".", ",")) : ""}" placeholder="Ex.: 180,00"></div></div>
         <div class="acoes"><button type="button" class="btn btn-primario" id="ofertar">${a.minha_oferta && a.minha_situacao === "enviada" ? "Mudar oferta" : "Enviar oferta"}</button>
-          <button type="button" class="btn btn-secundario fechar">Fechar</button></div></div>`;
+          <button type="button" class="btn btn-secundario fechar">Fechar</button></div>`
+        : `<h3>Quer comprar este material?</h3>
+        <p class="suave">Ofertas são para ferro-velho, depósito e recicladora com CNPJ. O cadastro é grátis e a aprovação sai na hora pelo CNPJ. A sua oferta só quem vende vê.</p>
+        <div class="acoes"><button type="button" class="btn btn-primario" id="quero-ofertar">${estado.sessao ? "Cadastrar minha empresa" : "Entrar para fazer oferta"}</button>
+          <button type="button" class="btn btn-secundario fechar">Fechar</button></div>`}</div>`;
       document.body.appendChild(fundo);
       const fechar = () => fundo.remove();
       fundo.addEventListener("click", (e) => { if (e.target === fundo || e.target.closest(".fechar")) fechar(); });
+      if (!podeOfertar) { $("#quero-ofertar", fundo).addEventListener("click", () => { fechar(); precisa("comprador", "anuncios"); }); return; }
       $("#ofertar", fundo).addEventListener("click", (e) => ocupado(e.currentTarget, async () => {
         const v = lerReais($("#oferta", fundo).value);
         if (!v) throw new Error("Escreva quanto você paga, por exemplo 180,00.");
@@ -883,9 +922,8 @@
 
   // ── quem compra: anúncio de compra ──────────────────────────────────────
   TELAS["anunciar-compra"] = async (el) => {
+    if (!precisa("comprador", "anunciar-compra")) return;
     const c = estado.comprador;
-    if (!c) return ir("cad-comprador");
-    if (c.status !== "aprovado") return ir("inicio-comprador");
     await carregarCatalogo();
     const { data: fams } = await sb.from("slv_comprador_familias").select("familia_id").eq("comprador_id", c.usuario_id);
     const famIds = new Set((fams ?? []).map((f) => f.familia_id));
@@ -1101,7 +1139,9 @@
   (async () => {
     const { data } = await sb.auth.getSession();
     estado.sessao = data.session;
+    $("#btn-menu").hidden = false;
     if (estado.sessao) { try { await aoEntrar(); } catch (e) { console.warn(e); } }
+    else { montarMenu(); carregarCatalogo().catch(() => {}); }
     await rota();
   })();
 
