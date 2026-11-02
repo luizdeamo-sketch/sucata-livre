@@ -278,6 +278,9 @@ textarea { min-height: 110px; resize: vertical; }
 .filtros .rot { font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; color: var(--suave); font-weight: 700; align-self: center; flex: none; }
 .busca-cep label { font: 800 1.7rem/1.1 var(--f-titulo); margin: 0; }
 .busca-cep .dica { color: var(--suave); }
+.busca-rodape { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; justify-content: space-between; }
+.busca-rodape .dica { flex: 1 1 260px; margin: 0; }
+.btn-local { min-height: 44px; padding: 8px 16px; flex: 0 0 auto; }
 .busca-linha { display: flex; gap: 8px; }
 .busca-linha input { flex: 1; min-width: 0; font-family: var(--f-num); border-color: var(--linha-forte); }
 .busca-linha .btn { flex: none; }

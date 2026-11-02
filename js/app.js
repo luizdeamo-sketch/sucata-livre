@@ -23,14 +23,15 @@
     const h = Math.round(min / 60); if (h < 48) return `há ${h} h`;
     return `há ${Math.round(h / 24)} dias`;
   };
-  const PRECISAO = { rua: "localização pela rua", bairro: "localização pelo bairro (aproximada)", cidade: "localização pelo centro da cidade (aproximada)" };
+  const PRECISAO = { aparelho: "localização do aparelho", rua: "localização pela rua", bairro: "localização pelo bairro (aproximada)", cidade: "localização pelo centro da cidade (aproximada)" };
 
   // sem CEP, a vitrine abre no centro de Salto (como a OLX abre na cidade): quem chega já vê anúncios
   const LOCAL_PADRAO = { lat: -23.2003, lng: -47.2869, cep: "", bairro: "", cidade: "Salto", uf: "SP", precisao: "cidade", padrao: true };
   const estado = {
     sessao: null, eu: null, vendedor: null, comprador: null, operador: false,
     familias: [], materiais: [], params: {}, respostas: 0,
-    local: { ...LOCAL_PADRAO }, // {lat, lng, cep, bairro, cidade, precisao} usado nas listas e no mapa
+    // {lat, lng, cep, bairro, cidade, precisao} usado nas listas e no mapa; o que a pessoa escolheu na visita volta ao recarregar
+    local: (() => { try { const s = JSON.parse(sessionStorage.getItem("slv-local")); if (s?.lat && s?.lng) return s; } catch {} return { ...LOCAL_PADRAO }; })(),
     familiaFiltro: null,  // filtro de material das listas
     raio: 10,             // filtro de distância das listas (km)
     abrir: null,          // id de anúncio/oferta para abrir na próxima tela
@@ -183,7 +184,7 @@
     const raio = L.circle([c.lat, c.lng], { radius: estado.raio * 1000, color: "#82878e", weight: 2, dashArray: "6 6", fill: false, interactive: false }).addTo(mapa);
     const pino = (txt, cor, extra = "") => L.divIcon({ className: "pino-mapa", html: `<span class="pm ${extra}" style="background:${cor}">${txt}</span>`, iconSize: [30, 30], iconAnchor: [15, 15] });
     L.marker([c.lat, c.lng], { icon: pino("você", "#14171c", "pm-eu"), keyboard: false, zIndexOffset: 1000 }).addTo(mapa)
-      .bindTooltip(c.padrao ? "Centro de Salto (digite seu CEP)" : "Você (pelo CEP)");
+      .bindTooltip(c.padrao ? "Centro de Salto (use a sua localização ou o CEP)" : c.precisao === "aparelho" ? "Você (localização do aparelho)" : "Você (pelo CEP)");
     const cor = venda ? "#b4461a" : "#1f5c99";
     const limites = [[c.lat, c.lng]];
     p.pontos.forEach((x, i) => {
@@ -225,10 +226,13 @@
     const l = estado.local;
     return `<form class="busca-cep" id="busca-cep">
       <label for="cep-busca">${titulo}</label>
-      <div class="busca-linha"><input type="text" id="cep-busca" inputmode="numeric" placeholder="Digite seu CEP" value="${l ? esc(fmtCEP(l.cep)) : ""}">
+      <div class="busca-linha"><input type="text" id="cep-busca" inputmode="numeric" placeholder="Digite seu CEP" aria-label="CEP" value="${l ? esc(fmtCEP(l.cep)) : ""}">
         <button type="submit" class="btn btn-primario">Buscar</button></div>
-      <small class="dica">${l?.padrao ? "📍 Mostrando Salto e região. Digite o seu CEP para ver o que está mais perto de você."
-        : l ? `📍 ${esc([l.bairro, l.cidade].filter(Boolean).join(", "))} · ${esc(PRECISAO[l.precisao] ?? "")}` : "Digite o CEP para ver quem está perto."}</small>
+      <div class="busca-rodape">
+        <small class="dica">${l?.padrao ? "📍 Mostrando Salto e região. Use a sua localização ou digite o CEP para ver o que está mais perto."
+          : l ? `📍 ${l.precisao === "aparelho" ? "Perto de você: " : ""}${esc([l.bairro, l.cidade].filter(Boolean).join(", "))} · ${esc(PRECISAO[l.precisao] ?? "")}` : "Digite o CEP para ver quem está perto."}</small>
+        ${navigator.geolocation ? `<button type="button" class="btn btn-secundario btn-local" id="usar-local">📍 Usar minha localização</button>` : ""}
+      </div>
     </form>`;
   }
   function ligarCaixaCep(el) {
@@ -236,15 +240,58 @@
     i.addEventListener("input", () => (i.value = fmtCEP(i.value)));
     f.addEventListener("submit", (e) => {
       e.preventDefault();
-      ocupado(f.querySelector("button"), async () => {
+      ocupado(f.querySelector("button[type=submit]"), async () => {
         const d = digitos(i.value);
         if (d.length !== 8) throw new Error("Digite os 8 números do CEP.");
         const r = await consultarCep(d);
         if (!r.na_regiao) throw new Error(`${r.geo.cidade} ainda fica fora da região de lançamento (Salto e 50 km em volta).`);
-        estado.local = { ...r.geo };
+        estado.local = { ...r.geo }; guardarLocal();
         rota();
       });
     });
+    $("#usar-local", el)?.addEventListener("click", (e) => ocupado(e.currentTarget, async () => {
+      try { localStorage.removeItem(GEO_RECUSOU); } catch {}
+      await localDoAparelho();
+      rota();
+    }));
+  }
+
+  // localização do aparelho: pedida uma vez ao abrir a vitrine; recusou, não pergunta de novo sozinho.
+  // Fica só neste aparelho, durante a visita (sessionStorage): não vai para o banco.
+  const GEO_RECUSOU = "slv-geo-recusou", LOCAL_SALVO = "slv-local";
+  function guardarLocal() { try { sessionStorage.setItem(LOCAL_SALVO, JSON.stringify(estado.local)); } catch {} }
+  const distKm = (a, b, c, d) => { const r = Math.PI / 180, x = (d - b) * r * Math.cos((a + c) / 2 * r), y = (c - a) * r; return Math.hypot(x, y) * 6371; };
+  async function localDoAparelho() {
+    if (!navigator.geolocation) throw new Error("Este aparelho não informa a localização. Digite o CEP.");
+    let pos;
+    try {
+      pos = await new Promise((ok, erro) => navigator.geolocation.getCurrentPosition(ok, erro, { enableHighAccuracy: false, timeout: 12000, maximumAge: 600000 }));
+    } catch (e) {
+      if (e?.code === 1) { try { localStorage.setItem(GEO_RECUSOU, "1"); } catch {} throw new Error("A localização está bloqueada neste navegador. Libere nas configurações ou digite o CEP."); }
+      throw new Error("Não deu para achar a sua localização agora. Digite o CEP.");
+    }
+    const lat = pos.coords.latitude, lng = pos.coords.longitude;
+    if (distKm(lat, lng, LOCAL_PADRAO.lat, LOCAL_PADRAO.lng) > 50) throw new Error("Você está fora da região de lançamento (Salto e 50 km em volta). Mostramos Salto e região.");
+    let cidade = null, bairro = null;
+    try { // nome do bairro pelo OpenStreetMap (do navegador da pessoa, uma consulta por vez), com limite de 5 s
+      const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 5000);
+      const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=16&accept-language=pt-BR`, { signal: ctl.signal });
+      clearTimeout(t);
+      if (r.ok) { const a = (await r.json()).address ?? {}; cidade = a.city || a.town || a.village || a.municipality || null; bairro = a.suburb || a.neighbourhood || a.quarter || null; }
+    } catch { /* sem nome do lugar, vale a cidade mais perto */ }
+    if (!cidade) cidade = CIDADES.map(([n, a, b]) => [n, distKm(lat, lng, a, b)]).sort((x, y) => x[1] - y[1])[0][0];
+    estado.local = { lat, lng, cep: "", bairro, cidade, uf: "SP", precisao: "aparelho" };
+    guardarLocal();
+  }
+  async function localAutomatico() {
+    if (!estado.local?.padrao || !navigator.geolocation) return;
+    try { if (localStorage.getItem(GEO_RECUSOU)) return; } catch {}
+    try { if ((await navigator.permissions?.query({ name: "geolocation" }))?.state === "denied") return; } catch {}
+    try {
+      await localDoAparelho();
+      const tela = location.hash.replace(/^#\/?/, "").split("?")[0] || telaInicial();
+      if (tela === "anuncios" || tela === "quem-compra") rota();
+    } catch (e) { if (!/bloqueada/.test(e.message)) avisar(e.message, "info"); }
   }
 
   // filtros de distância e material das listas
@@ -1190,6 +1237,7 @@
     if (estado.sessao) { try { await aoEntrar(); } catch (e) { console.warn(e); } }
     else { montarMenu(); carregarCatalogo().catch(() => {}); }
     await rota();
+    localAutomatico();
   })();
 
   window.SLV = { estado, ir, consultarCep }; // para inspeção no console

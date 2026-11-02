@@ -1,6 +1,15 @@
 // Sucata Livre · o que mudou em cada versão (aparece depois que a pessoa clica em Atualizar).
 window.NOVIDADES = [
   {
+    versao: "2026-11-02-6",
+    data: "02/11/2026",
+    itens: [
+      "Sua localização: deixe o celular informar onde você está e veja o que está mais perto, sem digitar o CEP.",
+      "Prefere não informar? Digite o CEP. O botão “Usar minha localização” fica ao lado.",
+      "A localização fica só no seu aparelho: não vai para o nosso banco.",
+    ],
+  },
+  {
     versao: "2026-11-02-5",
     data: "02/11/2026",
     itens: [
