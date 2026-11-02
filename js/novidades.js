@@ -1,6 +1,14 @@
 // Sucata Livre · o que mudou em cada versão (aparece depois que a pessoa clica em Atualizar).
 window.NOVIDADES = [
   {
+    versao: "2026-11-02-7",
+    data: "02/11/2026",
+    itens: [
+      "Quem ainda não tem cadastro é perguntado sobre a localização toda vez que abre o Sucata Livre.",
+      "Quem tem cadastro continua vendo o que está perto do CEP do cadastro.",
+    ],
+  },
+  {
     versao: "2026-11-02-6",
     data: "02/11/2026",
     itens: [

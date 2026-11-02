@@ -250,15 +250,14 @@
       });
     });
     $("#usar-local", el)?.addEventListener("click", (e) => ocupado(e.currentTarget, async () => {
-      try { localStorage.removeItem(GEO_RECUSOU); } catch {}
       await localDoAparelho();
       rota();
     }));
   }
 
-  // localização do aparelho: pedida uma vez ao abrir a vitrine; recusou, não pergunta de novo sozinho.
-  // Fica só neste aparelho, durante a visita (sessionStorage): não vai para o banco.
-  const GEO_RECUSOU = "slv-geo-recusou", LOCAL_SALVO = "slv-local";
+  // localização do aparelho: quem não tem cadastro é perguntado em toda visita (regra do Luiz, 02/11);
+  // quem tem cadastro usa o CEP do cadastro. Fica só neste aparelho, durante a visita (sessionStorage): não vai para o banco.
+  const LOCAL_SALVO = "slv-local";
   function guardarLocal() { try { sessionStorage.setItem(LOCAL_SALVO, JSON.stringify(estado.local)); } catch {} }
   const distKm = (a, b, c, d) => { const r = Math.PI / 180, x = (d - b) * r * Math.cos((a + c) / 2 * r), y = (c - a) * r; return Math.hypot(x, y) * 6371; };
   async function localDoAparelho() {
@@ -267,7 +266,7 @@
     try {
       pos = await new Promise((ok, erro) => navigator.geolocation.getCurrentPosition(ok, erro, { enableHighAccuracy: false, timeout: 12000, maximumAge: 600000 }));
     } catch (e) {
-      if (e?.code === 1) { try { localStorage.setItem(GEO_RECUSOU, "1"); } catch {} throw new Error("A localização está bloqueada neste navegador. Libere nas configurações ou digite o CEP."); }
+      if (e?.code === 1) throw new Error("A localização está bloqueada neste navegador. Libere nas configurações ou digite o CEP.");
       throw new Error("Não deu para achar a sua localização agora. Digite o CEP.");
     }
     const lat = pos.coords.latitude, lng = pos.coords.longitude;
@@ -285,13 +284,12 @@
   }
   async function localAutomatico() {
     if (!estado.local?.padrao || !navigator.geolocation) return;
-    try { if (localStorage.getItem(GEO_RECUSOU)) return; } catch {}
-    try { if ((await navigator.permissions?.query({ name: "geolocation" }))?.state === "denied") return; } catch {}
+    if (estado.vendedor || estado.comprador) return; // tem cadastro: vale o CEP do cadastro
     try {
       await localDoAparelho();
       const tela = location.hash.replace(/^#\/?/, "").split("?")[0] || telaInicial();
       if (tela === "anuncios" || tela === "quem-compra") rota();
-    } catch (e) { if (!/bloqueada/.test(e.message)) avisar(e.message, "info"); }
+    } catch (e) { avisar(e.message, "info"); }
   }
 
   // filtros de distância e material das listas
