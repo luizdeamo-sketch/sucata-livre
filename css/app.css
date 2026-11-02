@@ -598,7 +598,7 @@ body { background: var(--fundo); }
 .como h2 { margin: 0; font: 800 clamp(1.4rem, 3vw, 1.8rem)/1.1 var(--f-titulo); }
 
 /* monitor: o topo da vitrine em duas faixas lado a lado, em vez de cinco linhas empilhadas à esquerda */
-@media (min-width: 1100px) {
+@media (min-width: 900px) {
   .painel-topo { display: grid; grid-template-columns: minmax(340px, 460px) minmax(0, 1fr); gap: 10px 16px; align-items: center; margin-bottom: 14px; }
   .painel-topo > .lado, .painel-topo > .busca-cep { margin: 0; max-width: none; }
   .painel-topo > .lado { align-self: center; }
