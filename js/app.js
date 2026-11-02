@@ -34,6 +34,7 @@
     local: (() => { try { const s = JSON.parse(sessionStorage.getItem("slv-local")); if (s?.lat && s?.lng) return s; } catch {} return { ...LOCAL_PADRAO }; })(),
     familiaFiltro: null,  // filtro de material das listas
     raio: 10,             // filtro de distância das listas (km)
+    vista: "lista",       // no celular: "lista" ou "mapa"
     abrir: null,          // id de anúncio/oferta para abrir na próxima tela
   };
   const MAT = () => Object.fromEntries(estado.materiais.map((m) => [m.id, m]));
@@ -169,7 +170,7 @@
   // ── mapa real (Leaflet + OpenStreetMap); o desenho em SVG fica de reserva se o mapa não carregar ──
   // Quem não é comprador aprovado recebe o anúncio de venda com o ponto arredondado (≈ 1 km): no mapa ele vira
   // uma área de 500 m, nunca um pino na porta de quem vende. Comprador é empresa: o pino fica no endereço.
-  let mapaPendente = null;
+  let mapaPendente = null, mapaAtual = null;
   function mapaHTML(pontos, classe) {
     if (!window.L) return mapaSVG(pontos, classe);
     mapaPendente = { pontos, classe };
@@ -180,6 +181,7 @@
     const caixa = $("#mapa-real", el); if (!p || !caixa || !window.L) return;
     const c = estado.local, venda = p.classe === "m-anu", aproximado = venda && estado.comprador?.status !== "aprovado";
     const mapa = L.map(caixa, { scrollWheelZoom: false, attributionControl: true }).setView([c.lat, c.lng], 13);
+    mapaAtual = mapa;
     L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18, attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>' }).addTo(mapa);
     const raio = L.circle([c.lat, c.lng], { radius: estado.raio * 1000, color: "#82878e", weight: 2, dashArray: "6 6", fill: false, interactive: false }).addTo(mapa);
     const pino = (txt, cor, extra = "") => L.divIcon({ className: "pino-mapa", html: `<span class="pm ${extra}" style="background:${cor}">${txt}</span>`, iconSize: [30, 30], iconAnchor: [15, 15] });
@@ -199,7 +201,8 @@
         if (venda) alvo.click(); else { alvo.scrollIntoView({ behavior: "smooth", block: "center" }); alvo.classList.add("piscar"); setTimeout(() => alvo.classList.remove("piscar"), 1600); }
       });
     });
-    mapa.fitBounds(L.latLngBounds(limites), { padding: [30, 30], maxZoom: 15 });
+    mapa.__limites = L.latLngBounds(limites);
+    mapa.fitBounds(mapa.__limites, { padding: [30, 30], maxZoom: 15 });
     setTimeout(() => mapa.invalidateSize(), 200);
   }
 
@@ -294,14 +297,42 @@
 
   // filtros de distância e material das listas
   const RAIOS = [5, 10, 25, 50];
-  function filtrosHTML() {
+  // categorias grandes com o selo e quantos há em cada uma (a lista vem inteira e o filtro é feito aqui)
+  function filtrosHTML(cont, rotulo) {
+    const n = (x) => `${x} ${x === 1 ? rotulo[0] : rotulo[1]}`;
+    const primeiro = (fam) => estado.materiais.find((m) => m.familia_id === fam)?.id;
     return `<div class="filtros">
       <div class="chips" role="group" aria-label="Distância"><span class="rot">Até</span>${RAIOS.map((r) => `<button type="button" class="chip" data-raio="${r}" aria-pressed="${estado.raio === r}">${r} km</button>`).join("")}</div>
-      <div class="chips" role="group" aria-label="Material"><span class="rot">Material</span><button type="button" class="chip" data-fam="" aria-pressed="${estado.familiaFiltro == null}">Tudo</button>${estado.familias.map((f) => `<button type="button" class="chip" data-fam="${f.id}" aria-pressed="${estado.familiaFiltro === f.id}">${esc(f.nome)}</button>`).join("")}</div>
+      <div class="categorias" role="group" aria-label="Material">
+        <button type="button" class="categoria" data-fam="" aria-pressed="${estado.familiaFiltro == null}"><span class="cat-tudo" aria-hidden="true">Tudo</span><span><b>Tudo</b><small>${n(cont?.total ?? 0)}</small></span></button>
+        ${estado.familias.map((f) => `<button type="button" class="categoria" data-fam="${f.id}" aria-pressed="${estado.familiaFiltro === f.id}" ${cont && !cont[f.id] ? "data-vazia" : ""}>
+          ${primeiro(f.id) ? selo(primeiro(f.id)) : ""}<span><b>${esc(f.nome)}</b><small>${n(cont?.[f.id] ?? 0)}</small></span></button>`).join("")}
+      </div>
     </div>`;
   }
+  // famílias de material de um item da lista (anúncio: itens; comprador/anúncio de compra: materiais)
+  const familiasDe = (x) => { const M = MAT(); return new Set((x.itens ? x.itens.map((i) => i.material_id) : x.materiais ?? []).map((id) => M[id]?.familia_id).filter(Boolean)); };
+  function contarEFiltrar(todos) {
+    const cont = { total: todos.length };
+    for (const x of todos) for (const f of familiasDe(x)) cont[f] = (cont[f] ?? 0) + 1;
+    const lista = estado.familiaFiltro == null ? todos : todos.filter((x) => familiasDe(x).has(estado.familiaFiltro));
+    return { cont, lista };
+  }
+  // no celular, a lista e o mapa revezam a tela (no computador ficam lado a lado e o seletor some)
+  const vistaHTML = () => `<div class="vista" role="group" aria-label="Ver como">
+      <button type="button" class="chip" data-vista="lista" aria-pressed="${estado.vista === "lista"}">☰ Lista</button>
+      <button type="button" class="chip" data-vista="mapa" aria-pressed="${estado.vista === "mapa"}">🗺 Mapa</button></div>`;
   function ligarFiltros(el) {
     el.addEventListener("click", (e) => {
+      const v = e.target.closest("[data-vista]");
+      if (v) {
+        estado.vista = v.dataset.vista;
+        $(".duas", el)?.setAttribute("data-vista", estado.vista);
+        $$("[data-vista]", el).forEach((x) => x.matches("button") && x.setAttribute("aria-pressed", String(x.dataset.vista === estado.vista)));
+        // o mapa nasceu escondido no celular: recalcula o tamanho e o enquadramento quando aparece
+        if (estado.vista === "mapa") setTimeout(() => { if (!mapaAtual) return; mapaAtual.invalidateSize(); if (mapaAtual.__limites) mapaAtual.fitBounds(mapaAtual.__limites, { padding: [30, 30], maxZoom: 15 }); }, 60);
+        return;
+      }
       const b = e.target.closest(".filtros [data-raio], .filtros [data-fam]"); if (!b) return;
       if (b.dataset.raio) estado.raio = Number(b.dataset.raio);
       else estado.familiaFiltro = b.dataset.fam ? Number(b.dataset.fam) : null;
@@ -390,6 +421,7 @@
     if (logado && (!estado.vendedor || !estado.comprador)) itens.push(["papel", estado.vendedor || estado.comprador ? "➕ Também quero comprar ou vender" : "🏠 Começar a vender ou comprar"]);
     if (logado) itens.push(["sugestoes", "🗨️ Sugestões"]);
     itens.push(["apresentacao", "ℹ️ Como funciona"]);
+    if (!instalado()) itens.push(["instalar", "📲 Instalar no celular"]);
     if (!logado) itens.push(["entrar", "🔑 Entrar ou criar cadastro"]);
     if (estado.operador) itens.push(["operador", "🗼 Operador"]);
     $("#menu").innerHTML = itens.map(([t, r]) =>
@@ -410,7 +442,7 @@
   }
 
   // vitrine aberta: ver é livre; fazer negócio (WhatsApp, oferta, anúncio) pede cadastro
-  const PUBLICAS = new Set(["anuncios", "quem-compra", "quanto-vale", "anunciar", "apresentacao", "entrar"]);
+  const PUBLICAS = new Set(["anuncios", "quem-compra", "quanto-vale", "anunciar", "comprador", "instalar", "apresentacao", "entrar"]);
   const VOLTA = "slv-voltar";
   const guardarVolta = (tela) => { try { sessionStorage.setItem(VOLTA, tela); } catch {} };
   const lerVolta = () => { try { return sessionStorage.getItem(VOLTA); } catch { return null; } };
@@ -440,7 +472,7 @@
     let nome = (location.hash.replace(/^#\/?/, "").split("?")[0]) || telaInicial();
     if (!TELAS[nome]) nome = telaInicial();
     if (!estado.sessao && !PUBLICAS.has(nome)) { guardarVolta(nome); nome = "entrar"; }
-    if (nome === lerVolta()) limparVolta();
+    if (nome === lerVolta()?.split("?")[0]) limparVolta();
     // um contêiner novo por tela, para os ouvintes de uma tela não sobrarem na seguinte
     const el = document.createElement("div");
     $("#tela").replaceChildren(el);
@@ -485,6 +517,84 @@
 
   // ── telas ────────────────────────────────────────────────────────────────
   const TELAS = { "quanto-vale": telaQuantoVale };
+
+  // ── instalar no celular: Android e Chrome oferecem pelo evento; no iPhone, o caminho é pelo Safari ──
+  let pedidoInstalar = null;
+  const instalado = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+  const ehIphone = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); pedidoInstalar = e; if (location.hash.startsWith("#/instalar")) rota(); });
+  addEventListener("appinstalled", () => { pedidoInstalar = null; avisar("Sucata Livre instalado na sua tela inicial.", "ok"); });
+  TELAS.instalar = async (el) => {
+    el.innerHTML = `<h1>Instalar o Sucata Livre</h1>
+      <p>Fica na tela inicial do celular, como um aplicativo: abre com um toque e ocupa quase nada de espaço. Não precisa de loja.</p>
+      ${instalado() ? `<div class="cartao destaque"><h3>Já está instalado</h3><p>Você está usando o Sucata Livre pela tela inicial. 👍</p></div>`
+        : pedidoInstalar ? `<div class="acoes"><button type="button" class="btn btn-primario" id="instalar-agora">📲 Instalar agora</button></div>`
+        : ehIphone ? `<div class="cartao"><h3>No iPhone (Safari)</h3><ol class="passos-lista"><li>Toque no botão <b>Compartilhar</b> (o quadrado com a seta para cima), embaixo da tela.</li>
+            <li>Role e toque em <b>Adicionar à Tela de Início</b>.</li><li>Toque em <b>Adicionar</b>. Pronto: o ímã amarelo aparece junto com os seus apps.</li></ol></div>`
+        : `<div class="cartao"><h3>No Android (Chrome)</h3><ol class="passos-lista"><li>Abra este endereço no Chrome do celular.</li>
+            <li>Toque nos <b>três pontinhos</b> lá em cima.</li><li>Toque em <b>Instalar app</b> ou <b>Adicionar à tela inicial</b>.</li></ol></div>
+           <div class="cartao"><h3>No iPhone (Safari)</h3><ol class="passos-lista"><li>Toque em <b>Compartilhar</b>.</li><li>Toque em <b>Adicionar à Tela de Início</b>.</li></ol></div>`}
+      <p class="suave">Endereço para mandar a quem você conhece: <b style="user-select:all">${esc(location.origin + location.pathname)}</b></p>`;
+    $("#instalar-agora", el)?.addEventListener("click", async () => {
+      const p = pedidoInstalar; if (!p) return;
+      p.prompt(); const { outcome } = await p.userChoice; pedidoInstalar = null;
+      if (outcome !== "accepted") avisar("Tudo bem. Dá para instalar depois, por este mesmo menu.", "info");
+      rota();
+    });
+  };
+
+  // ── página pública do comprador: confiança antes do negócio ─────────────
+  TELAS.comprador = async (el) => {
+    await carregarCatalogo();
+    const id = new URLSearchParams(location.hash.split("?")[1] ?? "").get("id");
+    const { data: c, error } = id ? await sb.rpc("slv_comprador_publico", { p_id: id }) : { data: null };
+    if (error) throw error;
+    if (!c) { el.innerHTML = `<div class="cartao vazio">Esse comprador não está no Sucata Livre agora. <a href="#/quem-compra">Ver quem compra perto</a></div>`; return; }
+    const mats = c.materiais?.length ? c.materiais : [...new Set((c.procuras ?? []).flatMap((p) => p.materiais ?? []))];
+    const dist = estado.local ? distKm(estado.local.lat, estado.local.lng, c.lat, c.lng) : null;
+    const ab = abertoAgora(c.horario);
+    const dia = (h) => h ? `${esc(h.abre)} às ${esc(h.fecha)}` : "Fechado";
+    const busca = (c.procuras ?? []).reduce((m, p) => Math.max(m, Number(p.raio_busca_km) || 0), 0);
+    const minimo = (c.procuras ?? []).map((p) => Number(p.minimo_kg) || 0).filter(Boolean).sort((a, b) => a - b)[0];
+    const pix = (c.procuras ?? []).some((p) => p.paga_pix);
+    el.innerHTML = `
+      <p><a href="#/quem-compra">← Quem compra perto</a></p>
+      <div class="cab"><h1 style="margin:0">${esc(c.nome)}</h1></div>
+      <div class="tags" style="margin:8px 0 6px">${c.exemplo ? `<span class="etiqueta exemplo">Exemplo</span>` : `<span class="etiqueta ok">CNPJ verificado</span>`}
+        ${ab === null ? "" : `<span class="etiqueta ${ab ? "ok" : "ruim"}">${ab ? "Aberto agora" : "Fechado agora"}</span>`}
+        ${c.faz_coleta || busca > 0 ? `<span class="etiqueta">Busca no local${busca > 0 ? ` até ${String(busca).replace(".0", "")} km` : ""}</span>` : `<span class="etiqueta">Só no balcão</span>`}
+        ${pix ? `<span class="etiqueta">Paga no Pix na hora</span>` : ""}</div>
+      <p class="suave">${esc([c.bairro, c.cidade].filter(Boolean).join(", "))}${dist != null ? ` · ≈ ${km(dist)} km de você` : ""}${c.cnpj ? ` · CNPJ ${esc(fmtCNPJ(c.cnpj))}` : ""} · no Sucata Livre desde ${new Date(c.desde).toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}</p>
+      <div class="numeros">
+        <div class="numero"><b>${c.negocios}</b><span class="suave">negócio${c.negocios === 1 ? "" : "s"} fechado${c.negocios === 1 ? "" : "s"} aqui</span></div>
+        <div class="numero"><b>${(c.procuras ?? []).length}</b><span class="suave">anúncio${(c.procuras ?? []).length === 1 ? "" : "s"} de compra no ar</span></div>
+        ${minimo ? `<div class="numero"><b>${String(minimo).replace(".0", "")} kg</b><span class="suave">compra a partir de</span></div>` : ""}
+      </div>
+      <div class="duas">
+        <section>
+          <div class="cartao"><h2 style="margin-top:0">O que compra</h2>
+            <div class="cods">${mats.map(selo).join("")}</div>
+            <p class="suave" style="margin-top:8px">${esc(nomesMateriais(mats))}.</p></div>
+          ${(c.procuras ?? []).filter((p) => p.observacao).map((p) => `<div class="cartao"><p style="margin:0">“${esc(p.observacao)}”</p><small class="suave">anúncio de compra · ${ha(p.criado_em)}</small></div>`).join("")}
+          <div class="cartao"><h2 style="margin-top:0">Horário</h2>
+            <table class="ref"><tbody><tr><td>Segunda a sexta</td><td>${dia(c.horario?.seg_sex)}</td></tr><tr><td>Sábado</td><td>${dia(c.horario?.sab)}</td></tr><tr><td>Domingo</td><td>${dia(c.horario?.dom)}</td></tr></tbody></table></div>
+          <div class="cartao contato">${c.exemplo ? `<p class="suave" style="margin:0">Exemplo: mostra como fica a página de um comprador, sem WhatsApp.</p>`
+            : `<h2 style="margin-top:0">Falar com ${esc(c.nome)}</h2><p class="suave">O WhatsApp e o endereço aparecem para quem tem cadastro de quem vende. O contato fica registrado para o comprador.</p>
+               <button type="button" class="btn btn-primario" id="ver-zap">Ver WhatsApp e endereço</button>`}</div>
+        </section>
+        <section><h2>No mapa</h2>${mapaHTML([{ id: c.id, nome: c.nome, lat: c.lat, lng: c.lng, distancia_km: dist ?? 0 }], "m-comp")}
+          <p class="legenda"><span class="ponto m-eu-l"></span>você <span class="ponto m-comp-l"></span>${esc(c.nome)}</p></section>
+      </div>`;
+    $("#ver-zap", el)?.addEventListener("click", (e) => {
+      if (!precisa("vendedor", `comprador?id=${c.id}`)) return;
+      ocupado(e.currentTarget, async () => {
+        const { data: ct, error: er } = await sb.rpc("slv_contato_comprador", { p_comprador: c.id });
+        if (er) throw er;
+        e.target.closest(".contato").innerHTML = `<div class="zap">WhatsApp: <b>${esc(ct.telefone ? fmtTel(ct.telefone) : "não informado")}</b>
+          <span class="suave">${esc([ct.endereco, ct.bairro, ct.cidade].filter(Boolean).join(", "))}. Pergunte o preço de hoje.</span></div>`;
+      });
+    });
+  };
 
   TELAS.apresentacao = async (el) => {
     el.innerHTML = `
@@ -622,32 +732,34 @@
     const M = MAT();
     const l = estado.local;
     // 1º os anúncios de compra; se não houver nenhum perto, os compradores cadastrados servem de reserva
-    let lista = [], reserva = false;
+    let todos = [], reserva = false;
     if (l) {
-      const r = await sb.rpc("slv_procuras_perto", { p_lat: l.lat, p_lng: l.lng, p_raio_km: estado.raio, p_familia: estado.familiaFiltro });
+      const r = await sb.rpc("slv_procuras_perto", { p_lat: l.lat, p_lng: l.lng, p_raio_km: estado.raio, p_familia: null });
       if (r.error) throw r.error;
-      lista = r.data ?? [];
-      if (!lista.length && estado.familiaFiltro == null) {
+      todos = r.data ?? [];
+      if (!todos.length) {
         const c = await sb.rpc("slv_compradores_perto", { p_lat: l.lat, p_lng: l.lng, p_raio_km: estado.raio });
         if (c.error) throw c.error;
-        lista = (c.data ?? []).map((x) => ({ ...x, comprador_id: x.id, raio_busca_km: x.faz_coleta ? null : 0, reserva: true }));
-        reserva = lista.length > 0;
+        todos = (c.data ?? []).map((x) => ({ ...x, comprador_id: x.id, raio_busca_km: x.faz_coleta ? null : 0, reserva: true }));
+        reserva = todos.length > 0;
       }
     }
+    const { cont, lista } = contarEFiltrar(todos);
     el.innerHTML = `
       ${lado("quem-compra")}
       ${caixaCep("Quem compra sucata perto de você?")}
-      ${filtrosHTML()}
+      ${filtrosHTML(cont, ["comprador", "compradores"])}
       <div class="cartao chamada chamada-calc"><h3>Quanto vale a sua sucata?</h3>
         <p>Diga o material e o peso e veja na hora o preço da região. Gostou? Anuncie e os compradores perto mandam oferta.</p>
         <div class="acoes"><a class="btn btn-primario" href="#/quanto-vale">Calcular agora</a><a class="btn btn-secundario" href="#/anunciar">Anunciar meu material</a></div></div>
-      <div class="duas">
+      ${vistaHTML()}
+      <div class="duas" data-vista="${estado.vista}">
         <section>
           <h2>${lista.length} comprador${lista.length === 1 ? "" : "es"} até ${estado.raio} km <small class="suave">${reserva ? "cadastrados (ainda sem anúncio de compra)" : "anúncios de compra"}</small></h2>
           ${avisoExemplos(lista)}
           ${lista.length ? `<div class="lista-compra">${lista.map((c, i) => { const ab = abertoAgora(c.horario); return `
             <article class="cartao comprador"><div class="comprador-topo"><span class="pino">${i + 1}</span>
-              <div class="cn"><span class="tags">${c.reserva ? "" : `<span class="etiqueta compra">Compra</span>`}${c.exemplo ? `<span class="etiqueta exemplo">Exemplo</span>` : ""}</span><h3>${esc(c.nome)}</h3><span class="suave">${esc([c.bairro, c.cidade].filter(Boolean).join(", "))}</span></div>
+              <div class="cn"><span class="tags">${c.reserva ? "" : `<span class="etiqueta compra">Compra</span>`}${c.exemplo ? `<span class="etiqueta exemplo">Exemplo</span>` : ""}</span><h3><a class="nome-comprador" href="#/comprador?id=${esc(c.comprador_id)}">${esc(c.nome)}</a></h3><span class="suave">${esc([c.bairro, c.cidade].filter(Boolean).join(", "))}</span></div>
               <span class="km">≈ ${km(c.distancia_km)} km</span></div>
               <div class="cods" aria-label="Compra ${esc(nomesMateriais(c.materiais))}">${(c.materiais ?? []).map(selo).join("")}</div>
               ${c.observacao ? `<p class="suave">“${esc(c.observacao)}”</p>` : ""}
@@ -1006,20 +1118,21 @@
     const podeOfertar = estado.comprador?.status === "aprovado";
     await carregarCatalogo();
     const l = estado.local;
-    const { data, error } = l ? await sb.rpc("slv_anuncios_perto", { p_lat: l.lat, p_lng: l.lng, p_raio_km: estado.raio, p_familia: estado.familiaFiltro })
+    const { data, error } = l ? await sb.rpc("slv_anuncios_perto", { p_lat: l.lat, p_lng: l.lng, p_raio_km: estado.raio, p_familia: null })
       : { data: [] };
     if (error) throw error;
-    const lista = data ?? [];
+    const { cont, lista } = contarEFiltrar(data ?? []);
     const fotos = await urlsFotos(lista.map((a) => a.fotos?.[0]).filter(Boolean));
     let fi = 0; lista.forEach((a) => { if (a.fotos?.[0]) a._foto = fotos[fi++]; });
     el.innerHTML = `
       ${lado("anuncios")}
       ${caixaCep("Que sucata está à venda perto de você?")}
-      ${filtrosHTML()}
+      ${filtrosHTML(cont, ["anúncio", "anúncios"])}
       <div class="cartao chamada"><h3>Você compra sucata? Anuncie o que procura</h3>
         <p>Quem vende perto vê o seu anúncio de compra e chama você no WhatsApp.</p>
         <div class="acoes"><a class="btn btn-secundario" href="#/anunciar-compra">Anunciar que compro</a></div></div>
-      <div class="duas">
+      ${vistaHTML()}
+      <div class="duas" data-vista="${estado.vista}">
         <section>
           <h2>${lista.length} anúncio${lista.length === 1 ? "" : "s"} até ${estado.raio} km <small class="suave">material à venda</small></h2>
           ${avisoExemplos(lista)}
@@ -1315,6 +1428,7 @@
     const { data } = await sb.auth.getSession();
     estado.sessao = data.session;
     $("#btn-menu").hidden = false;
+    if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
     if (estado.sessao) { try { await aoEntrar(); } catch (e) { console.warn(e); } }
     else { montarMenu(); carregarCatalogo().catch(() => {}); }
     await rota();

@@ -1,6 +1,16 @@
 // Sucata Livre · o que mudou em cada versão (aparece depois que a pessoa clica em Atualizar).
 window.NOVIDADES = [
   {
+    versao: "2026-11-02-9",
+    data: "02/11/2026",
+    itens: [
+      "Categorias grandes (Metal, Ferro, Papel, Plástico) com quantos anúncios há em cada uma.",
+      "No celular: botão Lista ou Mapa, para ver o mapa na tela inteira.",
+      "Página de cada comprador: CNPJ verificado, o que compra, horário, negócios fechados e mapa. Toque no nome dele.",
+      "Instale o Sucata Livre na tela inicial do celular, pelo menu.",
+    ],
+  },
+  {
     versao: "2026-11-02-8",
     data: "02/11/2026",
     itens: [

@@ -89,6 +89,31 @@ h1 { font-family: var(--f-titulo); font-size: 2.25rem; line-height: 1.06; font-w
 .lado-op.compra[aria-current] { background: var(--compra); border-color: var(--compra); color: #fff; }
 .lado-op[aria-current] small { color: #fff; }
 .btn-topo { min-height: 40px; padding: 6px 16px; }
+/* categorias grandes com contagem */
+.categorias { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.categoria { display: flex; align-items: center; gap: 10px; padding: 10px 12px; min-height: 60px; border: 1px solid var(--linha-forte); border-radius: 14px;
+  background: #fff; color: var(--texto); font: inherit; text-align: left; cursor: pointer; }
+.categoria > span:last-child { display: grid; line-height: 1.15; }
+.categoria b { font-size: .98rem; }
+.categoria small { color: var(--suave); font-size: .85rem; }
+.categoria .cod { font-size: .85rem; flex: none; }
+.cat-tudo { display: grid; place-items: center; min-width: 2.6em; height: 2.6em; border-radius: var(--raio-p, 8px); background: var(--funda); font-weight: 800; font-size: .7rem; }
+.categoria[aria-pressed=true] { border-color: var(--texto); background: var(--texto); color: #fff; }
+.categoria[aria-pressed=true] small { color: #e6e8ea; }
+.categoria[aria-pressed=true] .cat-tudo { background: rgba(255, 255, 255, .16); color: #fff; }
+.categoria[data-vazia]:not([aria-pressed=true]) { opacity: .6; }
+.nome-comprador { color: var(--texto); text-decoration: underline; text-decoration-color: var(--linha-forte); text-underline-offset: 3px; }
+.nome-comprador:hover { text-decoration-color: var(--texto); }
+.numero span { display: block; font-size: .9rem; }
+.passos-lista { margin: 0; padding-left: 1.3em; display: grid; gap: 8px; }
+/* lista ou mapa no celular */
+.vista { display: none; gap: 8px; margin: 0 0 12px; }
+@media (max-width: 999px) {
+  .vista { display: flex; }
+  .duas[data-vista=mapa] > section:first-child { display: none; }
+  .duas[data-vista=lista] > section:last-child .mapa-real, .duas[data-vista=lista] > section:last-child > h2, .duas[data-vista=lista] > section:last-child > .legenda { display: none; }
+  .duas[data-vista=mapa] .mapa-real { height: 62vh; min-height: 340px; }
+}
 /* calculadora "quanto vale a minha sucata?" */
 .calc h2 { margin-top: 0; font-family: var(--f-titulo); font-size: 1.9rem; font-weight: 800; }
 .calc-mats { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(124px, 1fr)); margin: 12px 0; }
