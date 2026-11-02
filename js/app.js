@@ -247,7 +247,7 @@
       <div class="busca-linha" id="busca-campos" ${aberta ? "" : "hidden"}>
         <input type="text" id="cep-busca" inputmode="numeric" placeholder="Seu CEP" aria-label="CEP" value="${l ? esc(fmtCEP(l.cep)) : ""}">
         <button type="submit" class="btn btn-primario">Buscar</button>
-        ${navigator.geolocation ? `<button type="button" class="btn btn-secundario btn-local" id="usar-local" aria-label="Usar minha localização">📍<span class="so-largo"> Minha localização</span></button>` : ""}</div>
+        ${navigator.geolocation ? `<button type="button" class="btn btn-secundario btn-local" id="usar-local" aria-label="Usar minha localização"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${ICONE.vender}</svg><span class="so-largo"> Minha localização</span></button>` : ""}</div>
     </form>`;
   }
   function ligarCaixaCep(el) {
@@ -448,24 +448,27 @@
   // ── menu e navegação ─────────────────────────────────────────────────────
   function montarMenu() {
     const logado = !!estado.sessao;
-    // a vitrine é aberta: os dois primeiros itens valem para todo mundo, com ou sem cadastro
-    const itens = [["anuncios", "🔎 Material à venda"], ["quem-compra", "📍 Quem compra"], ["quanto-vale", "💰 Quanto vale a minha sucata"]];
-    if (estado.vendedor) itens.push(["anunciar", "➕ Anunciar"], ["meus-anuncios", "📋 Meus anúncios"]);
-    else if (!estado.comprador) itens.push(["anunciar", "➕ Anunciar minha sucata"]);
-    if (estado.comprador) itens.push(["inicio-comprador", "🏢 Minha empresa"], ["minhas-ofertas", "💬 Minhas ofertas"],
-      ["anunciar-compra", "📣 Anunciar que compro"], ["minhas-procuras", "📋 Meus anúncios de compra"], ["o-que-compro", "📦 O que compro"]);
-    if (estado.vendedor) itens.push(["cad-vendedor", "👤 Meu cadastro"]);
-    if (logado && (!estado.vendedor || !estado.comprador)) itens.push(["papel", estado.vendedor || estado.comprador ? "➕ Também quero comprar ou vender" : "🏠 Começar a vender ou comprar"]);
-    if (logado) itens.push(["sugestoes", "🗨️ Sugestões"]);
-    itens.push(["apresentacao", "ℹ️ Como funciona"]);
-    if (!instalado()) itens.push(["instalar", "📲 Instalar no celular"]);
-    if (!logado) itens.push(["entrar", "🔑 Entrar ou criar cadastro"]);
-    if (estado.operador) itens.push(["operador", "🗼 Operador"]);
-    $("#menu").innerHTML = itens.map(([t, r]) =>
-      `<a href="#/${t}" data-tela="${t}">${r}${t === "sugestoes" && estado.respostas ? `<span class="badge">${estado.respostas}</span>` : ""}</a>`).join("")
-      + (logado ? `<button type="button" id="btn-sair">🚪 Sair</button>` : "");
+    // três grupos: a vitrine (aberta a todos), a conta (cada papel) e o Sucata Livre; ícones de traço, como na barra
+    const vitrine = [["anuncios", "Material à venda", "comprar"], ["quem-compra", "Quem compra", "vender"], ["quanto-vale", "Quanto vale a minha sucata", "preco"]];
+    if (estado.vendedor || !estado.comprador) vitrine.push(["anunciar", estado.vendedor ? "Anunciar" : "Anunciar minha sucata", "anunciar"]);
+    const conta = [];
+    if (estado.vendedor) conta.push(["meus-anuncios", "Meus anúncios", "meus"], ["cad-vendedor", "Meu cadastro", "pessoa"]);
+    if (estado.comprador) conta.push(["inicio-comprador", "Minha empresa", "empresa"], ["minhas-ofertas", "Minhas ofertas", "oferta"],
+      ["anunciar-compra", "Anunciar que compro", "megafone"], ["minhas-procuras", "Meus anúncios de compra", "meus"], ["o-que-compro", "O que compro", "caixa"]);
+    if (logado && (!estado.vendedor || !estado.comprador)) conta.push(["papel", estado.vendedor || estado.comprador ? "Também quero comprar ou vender" : "Começar a vender ou comprar", "anunciar"]);
+    if (logado) conta.push(["sugestoes", "Sugestões", "conversa"]);
+    if (estado.operador) conta.push(["operador", "Operador", "torre"]);
+    const sobre = [["apresentacao", "Como funciona", "info"]];
+    if (!instalado()) sobre.push(["instalar", "Instalar no celular", "celular"]);
+    if (!logado) sobre.push(["entrar", C.demo ? "Entrar (versão de teste)" : "Entrar ou criar cadastro", "chave"]);
+    const item = ([t, r, i]) => `<a href="#/${t}" data-tela="${t}"><span class="mi"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONE[i] ?? ""}</svg></span>${r}${t === "sugestoes" && estado.respostas ? `<span class="badge">${estado.respostas}</span>` : ""}</a>`;
+    const grupo = (nome, lista) => lista.length ? `<p class="menu-grupo">${nome}</p>${lista.map(item).join("")}` : "";
+    $("#menu").innerHTML = `<div class="menu-cab"><img src="${BASE_APP}logo-negativo.svg" alt="Sucata Livre"></div>`
+      + grupo("Vitrine", vitrine) + grupo(estado.comprador && !estado.vendedor ? "Minha empresa" : "Minha conta", conta) + grupo("Sucata Livre", sobre)
+      + (logado ? `<button type="button" id="btn-sair"><span class="mi"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONE.sair}</svg></span>Sair</button>` : "")
+      + `<p class="menu-rodape">Quem junta, vende.${C.demo ? " · Versão de teste" : ""}</p>`;
     $("#btn-sair")?.addEventListener("click", async () => { await sb.auth.signOut({ scope: "local" }); location.hash = "#/"; location.reload(); });
-    if (!logado) $("#topo-nome").innerHTML = `<a class="btn btn-secundario btn-topo" href="#/entrar">Entrar</a>`;
+    if (!logado) $("#topo-nome").innerHTML = `<a class="btn btn-primario btn-topo" href="#/entrar">Entrar</a>`;
     montarBarra();
   }
 
@@ -477,6 +480,17 @@
     meus: '<path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/>',
     preco: '<path d="M12 3v18M17 7.5c0-1.9-2.2-3-5-3s-5 1.1-5 3 2 2.7 5 3.5 5 1.6 5 3.5-2.2 3-5 3-5-1.1-5-3"/>',
     mais: '<path d="M4 7h16M4 12h16M4 17h16"/>',
+    pessoa: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/>',
+    empresa: '<path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-5h6v5M9 10h.01M15 10h.01"/>',
+    oferta: '<path d="M4 5h16v11H8l-4 4z"/><path d="M9 10.5h6"/>',
+    megafone: '<path d="M3 10v4h4l6 4V6L7 10zM17 8.5a5 5 0 0 1 0 7"/>',
+    caixa: '<path d="M3 7l9-4 9 4-9 4zM3 7v10l9 4 9-4V7M12 11v10"/>',
+    conversa: '<path d="M21 12a8 8 0 0 1-11.8 7L4 20l1.1-4.6A8 8 0 1 1 21 12z"/>',
+    torre: '<path d="M12 3v18M8 21h8M7 8h10M9 8l-2 13M15 8l2 13M10 3h4"/>',
+    info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5h.01"/>',
+    celular: '<rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/>',
+    chave: '<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3M14 9l2 2"/>',
+    sair: '<path d="M14 4h5v16h-5M10 8l-4 4 4 4M6 12h11"/>',
   };
   function montarBarra() {
     if (!$("#barra-app")) return;

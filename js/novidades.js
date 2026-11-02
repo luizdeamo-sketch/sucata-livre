@@ -1,6 +1,14 @@
 // Sucata Livre · o que mudou em cada versão (aparece depois que a pessoa clica em Atualizar).
 window.NOVIDADES = [
   {
+    versao: "2026-11-02-13",
+    data: "02/11/2026",
+    itens: [
+      "Visual novo, com cara de placa de ferro-velho: topo grafite com o logo, faixa da abertura e botões mais firmes.",
+      "Menu organizado em Vitrine, Minha conta e Sucata Livre, com ícones mais claros.",
+    ],
+  },
+  {
     versao: "2026-11-02-12",
     data: "02/11/2026",
     itens: [

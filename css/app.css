@@ -468,3 +468,50 @@ textarea { min-height: 110px; resize: vertical; }
   .so-largo { display: none; }
   .tela { padding-top: 12px; }
 }
+
+/* ── acabamento "placa de ferro-velho" (02/11): grafite + amarelo, fundo cinza, botões firmes ── */
+:root { --fundo: #ebece7; --grafite: #14171c; --grafite-2: #22262d; }
+body { background: var(--fundo); }
+.topo { background: var(--grafite); color: #fff; border-bottom: 3px solid var(--marca); }
+.topo .btn-icone { color: #fff; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; }
+.topo .btn-icone svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; }
+.topo-nome { color: #c9ccd1; }
+.topo .btn-topo { min-height: 40px; padding: 6px 16px; }
+.faixa-versao { border-bottom: 1px solid rgba(0,0,0,.12); }
+/* cartões: brancos sobre o cinza, com uma sombra leve de papel */
+.cartao, .anuncio, .item-lista, .numero, .passo { border-color: #dcded7; box-shadow: 0 1px 2px rgba(20, 23, 28, .06); }
+.busca-cep { box-shadow: 0 1px 2px rgba(20, 23, 28, .06); }
+/* abertura em faixa grafite, com a frase em amarelo */
+.vitrine-topo { background: var(--grafite); color: #e6e8ea; border-radius: 16px; padding: 14px 18px; }
+.vitrine-topo .chamada-vitrine { color: var(--marca); }
+.vitrine-topo .vitrine-texto { color: #c9ccd1; }
+.vitrine-topo .vitrine-texto a { color: #fff; }
+/* botões: o principal parece uma placa (borda de baixo mais escura); o secundário tem contorno grafite */
+.btn { border-radius: 12px; font-weight: 800; letter-spacing: .01em; transition: transform .06s, background .15s, box-shadow .15s; }
+.btn:active:not([disabled]) { transform: translateY(1px); }
+.btn-primario { background: var(--marca); color: var(--sobre-marca); border: 0; box-shadow: inset 0 -4px 0 rgba(0, 0, 0, .18), 0 1px 2px rgba(20, 23, 28, .15); }
+.btn-primario:hover { background: var(--marca-forte); }
+.btn-primario:active:not([disabled]) { box-shadow: inset 0 -2px 0 rgba(0, 0, 0, .18); }
+.btn-secundario { background: #fff; color: var(--grafite); border: 2px solid var(--grafite); box-shadow: 0 1px 2px rgba(20, 23, 28, .08); }
+.btn-secundario:hover { background: #f6f6f3; }
+.btn-perigo { border-width: 2px; }
+.btn-zap { box-shadow: inset 0 -4px 0 rgba(0, 0, 0, .2); border: 0; }
+.chip { border-width: 1.5px; border-color: #b9bcb4; font-weight: 600; }
+.chip[aria-pressed=true] { background: var(--grafite); border-color: var(--grafite); }
+.lado { background: #fff; border: 1.5px solid #cfd1ca; border-radius: 14px; padding: 4px; gap: 4px; }
+.lado-op { border: 0; border-radius: 10px; font-weight: 800; }
+.lado-op:not([aria-current]) { background: transparent; color: var(--suave); }
+/* menu: cabeçalho grafite com o logo, grupos e ícones de traço */
+.menu { padding: 0; gap: 0; background: #fff; }
+.menu-cab { background: var(--grafite); padding: 18px 16px 16px; border-bottom: 3px solid var(--marca); line-height: 0; }
+.menu-cab img { height: 30px; width: auto; }
+.menu-grupo { padding: 14px 18px 4px; font: 800 .72rem/1 var(--f-texto); letter-spacing: .12em; text-transform: uppercase; color: var(--suave); }
+.menu a, .menu button { margin: 0 8px; width: calc(100% - 16px); padding: 11px 12px; gap: 14px; font-weight: 600; border-radius: 12px; }
+.menu .mi { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: #f1f2ee; flex: none; }
+.menu .mi svg { width: 20px; height: 20px; fill: none; stroke: var(--grafite); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.menu a.ativo { background: var(--marca-claro); font-weight: 800; }
+.menu a.ativo .mi { background: var(--marca); }
+.menu #btn-sair { margin-top: 10px; border-top: 1px solid var(--linha); border-radius: 0; color: var(--vermelho); }
+.menu #btn-sair .mi svg { stroke: var(--vermelho); }
+.menu-rodape { margin-top: auto; padding: 16px 18px; font-size: .8rem; color: var(--suave); }
+.btn .ic { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
