@@ -308,6 +308,70 @@
       rota();
     });
   }
+  // ── calculadora "quanto vale a minha sucata?" (aberta) e rascunho do anúncio ──────────────────
+  // O rascunho guarda o anúncio em montagem enquanto a pessoa entra e se cadastra; as fotos ficam na memória da página.
+  const RASCUNHO = "slv-rascunho";
+  let rascunho = null;
+  function guardarRascunho(R) { rascunho = R; try { sessionStorage.setItem(RASCUNHO, JSON.stringify({ ...R, fotos: [] })); } catch {} }
+  function lerRascunho() { if (rascunho) return rascunho; try { const s = JSON.parse(sessionStorage.getItem(RASCUNHO)); if (s?.itens) return s; } catch {} return null; }
+  function limparRascunho() { rascunho = null; try { sessionStorage.removeItem(RASCUNHO); } catch {} }
+
+  const calc = { itens: {} }; // material_id → kg
+  const itensCalc = () => Object.entries(calc.itens).map(([id, kg]) => ({ material_id: Number(id), peso_kg: Number(kg) || 0 }));
+  function calculadoraHTML(titulo = "Quanto vale a sua sucata?") {
+    const M = MAT();
+    const linhas = Object.keys(calc.itens).map((id) => `<label class="calc-linha" for="calc-kg${id}">${selo(id)}<span>${esc(M[id]?.nome ?? "")}</span>
+        <span class="kg"><input type="text" id="calc-kg${id}" data-calc-kg="${id}" inputmode="decimal" placeholder="0" value="${calc.itens[id] ? String(calc.itens[id]).replace(".", ",") : ""}"></span></label>`).join("");
+    const pronto = itensCalc().some((i) => i.peso_kg > 0);
+    return `<section class="cartao calc" id="calc" aria-labelledby="calc-t">
+      <h2 id="calc-t">${titulo}</h2>
+      <p class="suave">Toque no que você juntou e diga o peso. Sem cadastro, na hora.</p>
+      <div class="calc-mats" role="group" aria-label="Materiais">${estado.materiais.map((m) =>
+        `<button type="button" class="calc-mat" data-calc-mat="${m.id}" aria-pressed="${m.id in calc.itens}">${selo(m.id)}<span>${esc(m.nome)}</span></button>`).join("")}</div>
+      ${linhas ? `<div class="calc-linhas">${linhas}</div>` : ""}
+      <div class="estimativa" id="calc-est">${linhas ? textoEstimativa(itensCalc()) : `<span class="suave">Escolha um material para ver quanto vale na região.</span>`}</div>
+      <div class="acoes"><button type="button" class="btn btn-primario" data-calc-anunciar ${pronto ? "" : "disabled"}>Anunciar e receber ofertas</button></div>
+    </section>`;
+  }
+  function ligarCalculadora(el) {
+    const caixa = () => $("#calc", el); if (!caixa()) return;
+    el.addEventListener("click", (e) => {
+      const m = e.target.closest("[data-calc-mat]");
+      if (m) {
+        const id = m.dataset.calcMat;
+        if (id in calc.itens) delete calc.itens[id]; else calc.itens[id] = 0;
+        caixa().outerHTML = calculadoraHTML($("#calc-t", el)?.textContent);
+        $(`#calc-kg${id}`, el)?.focus();
+        return;
+      }
+      if (e.target.closest("[data-calc-anunciar]")) {
+        const itens = Object.fromEntries(Object.entries(calc.itens).filter(([, kg]) => kg > 0));
+        if (!Object.keys(itens).length) return avisar("Coloque o peso de pelo menos um material.", "erro");
+        const temRisco = Object.keys(itens).some((id) => MAT()[id]?.pede_check_risco);
+        guardarRascunho({ passo: temRisco ? 1 : 2, itens, fotos: [], cep: estado.vendedor?.cep ?? estado.local?.cep ?? "", geo: null, pode_buscar: true, risco: null, declarou: false });
+        ir("anunciar");
+      }
+    });
+    el.addEventListener("input", (e) => {
+      const i = e.target.closest("[data-calc-kg]"); if (!i) return;
+      calc.itens[i.dataset.calcKg] = lerKg(i.value);
+      $("#calc-est", el).innerHTML = textoEstimativa(itensCalc());
+      $("[data-calc-anunciar]", el).disabled = !itensCalc().some((x) => x.peso_kg > 0);
+    });
+  }
+  const telaQuantoVale = async (el) => { // registrada em TELAS logo depois que TELAS é criada
+    await carregarCatalogo();
+    el.innerHTML = `<h1>Quanto vale a sua sucata?</h1>
+      <p>Pelo preço pago no balcão da região de Salto. Gostou do valor? Anuncie e os compradores perto mandam oferta.</p>
+      ${calculadoraHTML("Escolha o material e o peso")}
+      ${tabelaReferencia()}`;
+    ligarCalculadora(el);
+  };
+
+  // link próprio do anúncio e mensagem pronta para o WhatsApp (o canal onde catador e ferro-velho já estão)
+  const linkAnuncio = (id) => `${location.origin}${location.pathname}#/anuncios?a=${id}`;
+  const zapAnuncio = (a) => `https://wa.me/?text=${encodeURIComponent(`Sucata à venda: ${tituloItens(a.itens)}${a.bairro || a.cidade ? ` em ${[a.bairro, a.cidade].filter(Boolean).join(", ")}` : ""}. Faça a sua oferta pelo Sucata Livre: ${linkAnuncio(a.id)}`)}`;
+
   // anúncios de exemplo (enquanto a vitrine não tem anúncios reais): um aviso só, no alto da lista
   const avisoExemplos = (lista) => (lista ?? []).some((x) => x.exemplo)
     ? `<p class="aviso-exemplo">Os anúncios com a marca <span class="etiqueta exemplo">Exemplo</span> mostram como a vitrine funciona e não fazem negócio. Eles saem quando chegarem os anúncios de verdade.</p>` : "";
@@ -317,8 +381,9 @@
   function montarMenu() {
     const logado = !!estado.sessao;
     // a vitrine é aberta: os dois primeiros itens valem para todo mundo, com ou sem cadastro
-    const itens = [["anuncios", "🔎 Material à venda"], ["quem-compra", "📍 Quem compra"]];
+    const itens = [["anuncios", "🔎 Material à venda"], ["quem-compra", "📍 Quem compra"], ["quanto-vale", "💰 Quanto vale a minha sucata"]];
     if (estado.vendedor) itens.push(["anunciar", "➕ Anunciar"], ["meus-anuncios", "📋 Meus anúncios"]);
+    else if (!estado.comprador) itens.push(["anunciar", "➕ Anunciar minha sucata"]);
     if (estado.comprador) itens.push(["inicio-comprador", "🏢 Minha empresa"], ["minhas-ofertas", "💬 Minhas ofertas"],
       ["anunciar-compra", "📣 Anunciar que compro"], ["minhas-procuras", "📋 Meus anúncios de compra"], ["o-que-compro", "📦 O que compro"]);
     if (estado.vendedor) itens.push(["cad-vendedor", "👤 Meu cadastro"]);
@@ -345,7 +410,7 @@
   }
 
   // vitrine aberta: ver é livre; fazer negócio (WhatsApp, oferta, anúncio) pede cadastro
-  const PUBLICAS = new Set(["anuncios", "quem-compra", "apresentacao", "entrar"]);
+  const PUBLICAS = new Set(["anuncios", "quem-compra", "quanto-vale", "anunciar", "apresentacao", "entrar"]);
   const VOLTA = "slv-voltar";
   const guardarVolta = (tela) => { try { sessionStorage.setItem(VOLTA, tela); } catch {} };
   const lerVolta = () => { try { return sessionStorage.getItem(VOLTA); } catch { return null; } };
@@ -364,7 +429,8 @@
   }
   // seletor do lado (vender ou comprar) no alto da vitrine, e a frase da marca para quem ainda não entrou
   const lado = (atual) => `${estado.sessao ? "" : `<section class="vitrine-topo"><p class="chamada-marca chamada-vitrine">Quem junta, vende.</p>
-      <p>Anúncios de sucata e reciclável de Salto e região, sem preço. Ver é livre; para fazer negócio, crie seu cadastro grátis.</p></section>`}
+      <p>Anúncios de sucata e reciclável de Salto e região, sem preço. Ver é livre; para fazer negócio, crie seu cadastro grátis.</p>
+      ${atual === "anuncios" ? `<p style="margin-top:10px"><a class="btn btn-secundario" href="#/quanto-vale">💰 Quanto vale a sua sucata? Veja na hora</a></p>` : ""}</section>`}
     <nav class="lado" aria-label="O que você quer fazer">
       <a href="#/quem-compra" class="lado-op vende" ${atual === "quem-compra" ? 'aria-current="page"' : ""}>Quero vender<small>quem compra perto</small></a>
       <a href="#/anuncios" class="lado-op compra" ${atual === "anuncios" ? 'aria-current="page"' : ""}>Quero comprar<small>material à venda</small></a>
@@ -418,7 +484,7 @@
   }
 
   // ── telas ────────────────────────────────────────────────────────────────
-  const TELAS = {};
+  const TELAS = { "quanto-vale": telaQuantoVale };
 
   TELAS.apresentacao = async (el) => {
     el.innerHTML = `
@@ -572,9 +638,9 @@
       ${lado("quem-compra")}
       ${caixaCep("Quem compra sucata perto de você?")}
       ${filtrosHTML()}
-      <div class="cartao chamada"><h3>Tem material parado? Anuncie em 1 minuto</h3>
-        <p>Diga o que tem e quanto pesa. Os compradores perto mandam a oferta só para você, e você escolhe a melhor.</p>
-        <div class="acoes"><a class="btn btn-primario" href="#/anunciar">Anunciar meu material</a></div></div>
+      <div class="cartao chamada chamada-calc"><h3>Quanto vale a sua sucata?</h3>
+        <p>Diga o material e o peso e veja na hora o preço da região. Gostou? Anuncie e os compradores perto mandam oferta.</p>
+        <div class="acoes"><a class="btn btn-primario" href="#/quanto-vale">Calcular agora</a><a class="btn btn-secundario" href="#/anunciar">Anunciar meu material</a></div></div>
       <div class="duas">
         <section>
           <h2>${lista.length} comprador${lista.length === 1 ? "" : "es"} até ${estado.raio} km <small class="suave">${reserva ? "cadastrados (ainda sem anúncio de compra)" : "anúncios de compra"}</small></h2>
@@ -616,13 +682,17 @@
 
   // ── quem vende: anunciar em 3 passos ────────────────────────────────────
   TELAS.anunciar = async (el) => {
-    if (!precisa("vendedor", "anunciar")) return;
+    // aberta: a pessoa monta o anúncio antes de ter cadastro; o celular só é pedido no "Publicar"
     await carregarCatalogo();
-    const R = { passo: 1, itens: {}, fotos: [], cep: estado.vendedor.cep, geo: null, pode_buscar: true, risco: null, declarou: false };
+    const R = lerRascunho() ?? { passo: 1, itens: {}, fotos: [], cep: estado.vendedor?.cep ?? estado.local?.cep ?? "", geo: null, pode_buscar: true, risco: null, declarou: false };
+    R.fotos ??= [];
+    if (!R.cep && estado.vendedor) R.cep = estado.vendedor.cep;
+    if (R.aguardando && estado.vendedor) { R.aguardando = false; R.passo = 3; setTimeout(() => avisar("Cadastro pronto. Confira o anúncio e toque em Publicar.", "ok"), 300); }
     const { data: riscos } = await sb.from("slv_itens_risco").select("*").order("id");
     const M = MAT();
 
     function desenhar() {
+      guardarRascunho(R);
       const cab = `<div class="passos-barra" aria-label="Passo ${R.passo} de 3">${[1, 2, 3].map((i) => `<span class="${i <= R.passo ? "on" : ""}"></span>`).join("")}</div>
         <h1>${["O que você tem?", "Quanto, mais ou menos?", "Onde está o material?"][R.passo - 1]}</h1>`;
       if (R.passo === 1) {
@@ -653,7 +723,7 @@
       } else {
         el.innerHTML = cab + `<div class="cartao"><div class="campos"><div><label for="cep-an">CEP de onde está o material</label>
             <input type="text" id="cep-an" inputmode="numeric" value="${esc(fmtCEP(R.cep))}">
-            <span class="dica" id="cep-an-info">${R.geo ? `📍 ${esc([R.geo.bairro, R.geo.cidade].filter(Boolean).join(", "))}` : "Já vem com o CEP do seu cadastro."}</span></div></div>
+            <span class="dica" id="cep-an-info">${R.geo ? `📍 ${esc([R.geo.bairro, R.geo.cidade].filter(Boolean).join(", "))}` : estado.vendedor && R.cep === estado.vendedor.cep ? "Já vem com o CEP do seu cadastro." : "O CEP só serve para achar os compradores perto. O anúncio mostra o bairro, nunca a rua."}</span></div></div>
           <h2>O comprador pode buscar?</h2>
           <div class="chips"><button type="button" class="chip" data-busca="1" aria-pressed="${R.pode_buscar}">Sim, venham buscar</button>
             <button type="button" class="chip" data-busca="0" aria-pressed="${!R.pode_buscar}">Não, eu levo</button></div>
@@ -661,7 +731,8 @@
           <div class="cartao"><h3>Resumo</h3><p>${esc(tituloItens(Object.entries(R.itens).filter(([, v]) => v > 0).map(([id, v]) => ({ material_id: Number(id), peso_kg: v }))))}</p>
             <p class="suave">${R.fotos.length} foto${R.fotos.length === 1 ? "" : "s"}${R.risco ? " · com declaração de origem" : ""}</p>
             <div class="estimativa">${textoEstimativa(itensR())}</div></div>
-          <div class="acoes"><button type="button" class="btn btn-secundario" data-ir="2">Voltar</button><button type="button" class="btn btn-primario" id="publicar">Publicar anúncio</button></div>`;
+          ${estado.vendedor ? "" : `<p class="suave">Para publicar, pedimos o seu celular (chega um código por SMS) e um cadastro rápido. Nada do que você preencheu se perde.</p>`}
+          <div class="acoes"><button type="button" class="btn btn-secundario" data-ir="2">Voltar</button><button type="button" class="btn btn-primario" id="publicar">${estado.vendedor ? "Publicar anúncio" : "Publicar: entrar com o celular"}</button></div>`;
         const c = $("#cep-an", el);
         c.addEventListener("input", async () => {
           c.value = fmtCEP(c.value); const d = digitos(c.value); R.cep = d; R.geo = null;
@@ -700,6 +771,7 @@
       }
       if (t.id === "publicar") ocupado(t, async () => {
         if (digitos(R.cep).length !== 8) throw new Error("Digite o CEP de onde está o material.");
+        if (!estado.vendedor) { R.aguardando = true; guardarRascunho(R); precisa("vendedor", "anunciar"); return; }
         if (digitos(R.cep) !== estado.vendedor.cep && !R.geo) await consultarCep(digitos(R.cep));
         const caminhos = [];
         for (const [i, f] of R.fotos.entries()) {
@@ -711,7 +783,8 @@
         const itens = Object.entries(R.itens).filter(([, v]) => v > 0).map(([id, v]) => ({ material_id: Number(id), peso_kg: v }));
         const { error } = await sb.rpc("slv_publicar_anuncio", { p_itens: itens, p_cep: digitos(R.cep), p_pode_buscar: R.pode_buscar, p_fotos: caminhos, p_item_risco: !!R.risco });
         if (error) throw error;
-        avisar("Anúncio publicado. Os compradores perto já podem ver e mandar oferta.", "ok");
+        limparRascunho(); calc.itens = {};
+        avisar("Anúncio publicado. Divulgue no WhatsApp para receber mais ofertas.", "ok");
         ir("meus-anuncios");
       });
     });
@@ -747,7 +820,8 @@
           <p>${a.ofertas ? `${a.ofertas} oferta${a.ofertas > 1 ? "s" : ""} · melhor: <b class="valor">${reais(a.melhor_oferta)}</b>` : `<span class="suave">Ainda sem ofertas.</span>`}</p>
           <div class="ofertas-lugar"></div>
           <div class="acoes"><button type="button" class="btn btn-secundario" data-ver="${a.id}">${a.ofertas ? "Ver ofertas" : "Atualizar"}</button>
-            ${a.status === "publicado" ? `<button type="button" class="btn btn-perigo" data-retirar="${a.id}">Retirar anúncio</button>` : ""}</div>
+            ${a.status === "publicado" ? `<a class="btn btn-zap" href="${esc(zapAnuncio(a))}" target="_blank" rel="noopener">Divulgar no WhatsApp</a>
+              <button type="button" class="btn btn-perigo" data-retirar="${a.id}">Retirar anúncio</button>` : ""}</div>
         </article>`).join("")}</div>`
         : `<div class="cartao vazio">Você ainda não anunciou nada.</div>`}`;
 
@@ -972,6 +1046,13 @@
       const b = e.target.closest("[data-abrir]"); if (!b) return;
       abrirAnuncio(lista.find((a) => String(a.id) === b.dataset.abrir));
     });
+    // link do WhatsApp: #/anuncios?a=123 abre o anúncio direto, mesmo fora da distância escolhida
+    const pedido = Number(new URLSearchParams(location.hash.split("?")[1] ?? "").get("a"));
+    if (pedido) {
+      let a = lista.find((x) => x.id === pedido);
+      if (!a) { const r = await sb.rpc("slv_anuncio_por_id", { p_id: pedido, p_lat: l.lat, p_lng: l.lng }); a = r.data?.[0]; }
+      if (a) abrirAnuncio(a); else avisar("Esse anúncio não está mais no ar. Veja os outros perto de você.", "info");
+    }
 
     async function abrirAnuncio(a) {
       const urls = await urlsFotos(a.fotos);
@@ -996,8 +1077,10 @@
         <p class="suave">Ofertas são para ferro-velho, depósito e recicladora com CNPJ. O cadastro é grátis e a aprovação sai na hora pelo CNPJ. A sua oferta só quem vende vê.</p>
         <div class="acoes"><button type="button" class="btn btn-primario" id="quero-ofertar">${estado.sessao ? "Cadastrar minha empresa" : "Entrar para fazer oferta"}</button>
           <button type="button" class="btn btn-secundario fechar">Fechar</button></div>`}</div>`;
+      if (!a.exemplo) $(".modal", fundo).insertAdjacentHTML("beforeend", `<p class="compartilhar"><a class="btn btn-zap" href="${esc(zapAnuncio(a))}" target="_blank" rel="noopener">Mandar no WhatsApp</a>
+        <span class="suave">Conhece um comprador para este material? Mande o anúncio para ele.</span></p>`);
       document.body.appendChild(fundo);
-      const fechar = () => fundo.remove();
+      const fechar = () => { fundo.remove(); if (location.hash.includes("?")) history.replaceState(null, "", `${location.pathname}${location.search}#/anuncios`); };
       fundo.addEventListener("click", (e) => { if (e.target === fundo || e.target.closest(".fechar")) fechar(); });
       if (a.exemplo) return;
       if (!podeOfertar) { $("#quero-ofertar", fundo).addEventListener("click", () => { fechar(); precisa("comprador", "anuncios"); }); return; }

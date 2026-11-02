@@ -1,6 +1,15 @@
 // Sucata Livre · o que mudou em cada versão (aparece depois que a pessoa clica em Atualizar).
 window.NOVIDADES = [
   {
+    versao: "2026-11-02-8",
+    data: "02/11/2026",
+    itens: [
+      "Quanto vale a sua sucata? Escolha o material, diga o peso e veja o preço da região na hora, sem cadastro.",
+      "Anuncie antes de se cadastrar: o celular só é pedido no Publicar, e nada do que você preencheu se perde.",
+      "Cada anúncio tem link próprio e o botão Mandar no WhatsApp, para divulgar nos seus grupos.",
+    ],
+  },
+  {
     versao: "2026-11-02-7",
     data: "02/11/2026",
     itens: [

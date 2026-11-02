@@ -89,6 +89,23 @@ h1 { font-family: var(--f-titulo); font-size: 2.25rem; line-height: 1.06; font-w
 .lado-op.compra[aria-current] { background: var(--compra); border-color: var(--compra); color: #fff; }
 .lado-op[aria-current] small { color: #fff; }
 .btn-topo { min-height: 40px; padding: 6px 16px; }
+/* calculadora "quanto vale a minha sucata?" */
+.calc h2 { margin-top: 0; font-family: var(--f-titulo); font-size: 1.9rem; font-weight: 800; }
+.calc-mats { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(124px, 1fr)); margin: 12px 0; }
+.calc-mat { display: flex; align-items: center; gap: 8px; padding: 8px; border: 1px solid var(--linha-forte); border-radius: 12px; background: #fff;
+  font: inherit; font-size: .9rem; line-height: 1.15; text-align: left; color: var(--texto); cursor: pointer; min-height: 52px; }
+.calc-mat .cod { font-size: .78rem; flex: none; }
+.calc-mat[aria-pressed=true] { border-color: var(--texto); background: var(--marca-claro); box-shadow: inset 0 0 0 1px var(--texto); font-weight: 700; }
+.calc-linhas { display: grid; gap: 6px; margin-bottom: 4px; }
+.calc-linha { display: grid; grid-template-columns: auto 1fr minmax(110px, 150px); gap: 10px; align-items: center; font-weight: 600; margin: 0; padding: 6px 0; border-bottom: 1px solid var(--linha); }
+.calc-linha .kg { position: relative; }
+.calc-linha .kg input { padding-right: 36px; text-align: right; font-family: var(--f-num); }
+.calc-linha .kg::after { content: "kg"; position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--suave); }
+/* WhatsApp: botão com a cor do aplicativo, para a pessoa reconhecer na hora */
+.btn-zap { background: #187a42; color: #fff; }   /* 5,4:1 com o texto branco */
+.btn-zap:hover { background: #12613a; }
+.compartilhar { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin: 16px 0 0; padding-top: 14px; border-top: 1px solid var(--linha); }
+.compartilhar .suave { flex: 1 1 220px; font-size: .92rem; }
 .etiqueta.exemplo { background: var(--marca-claro); color: var(--texto); border: 1px dashed var(--texto); }
 .aviso-exemplo { background: var(--marca-claro); border-radius: 12px; padding: 10px 14px; font-size: .95rem; }
 h2 { font-size: 1.25rem; font-weight: 700; margin: 24px 0 8px; }
