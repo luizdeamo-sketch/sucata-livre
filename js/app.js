@@ -35,7 +35,7 @@
     // {lat, lng, cep, bairro, cidade, precisao} usado nas listas e no mapa; o que a pessoa escolheu na visita volta ao recarregar
     local: (() => { try { const s = JSON.parse(sessionStorage.getItem("slv-local")); if (s?.lat && s?.lng) return s; } catch {} return { ...LOCAL_PADRAO }; })(),
     familiaFiltro: null,  // filtro de material das listas
-    raio: 10,             // filtro de distância das listas (km)
+    raio: 25,             // filtro de distância das listas (km), igual ao da entrada
     vista: "lista",       // no celular: "lista" ou "mapa"
     abrir: null,          // id de anúncio/oferta para abrir na próxima tela
   };
@@ -558,6 +558,8 @@
   function abrirMenu(abrir) { $("#menu").hidden = !abrir; $("#menu-fundo").hidden = !abrir; }
   $("#btn-menu").addEventListener("click", () => abrirMenu($("#menu").hidden));
   $("#busca-topo")?.addEventListener("submit", (e) => { e.preventDefault(); const t = $("#busca-texto").value.trim(); if (t) buscar(t); else ir("anuncios"); });
+  // no celular a dica inteira não cabe: fica a versão curta
+  if (matchMedia("(max-width: 520px)").matches && $("#busca-texto")) $("#busca-texto").placeholder = "Latinha, cobre, fio…";
   $("#local-topo")?.addEventListener("click", abrirTrocaLocal);
   $("#menu-fundo").addEventListener("click", () => abrirMenu(false));
   $("#menu").addEventListener("click", (e) => e.target.closest("a") && abrirMenu(false));

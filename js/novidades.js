@@ -1,6 +1,13 @@
 // Sucata Livre · o que mudou em cada versão (aparece depois que a pessoa clica em Atualizar).
 window.NOVIDADES = [
   {
+    versao: "2026-11-02-15",
+    data: "02/11/2026",
+    itens: [
+      "A lista de anúncios agora abre com até 25 km, igual à página de entrada.",
+    ],
+  },
+  {
     versao: "2026-11-02-14",
     data: "02/11/2026",
     itens: [
