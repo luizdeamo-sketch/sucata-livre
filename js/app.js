@@ -899,6 +899,7 @@
       <p><a href="#/quem-compra">← Quem compra perto</a></p>
       <div class="cab"><h1 style="margin:0">${esc(c.nome)}</h1></div>
       ${c.exemplo ? "" : `<div id="rep-comprador"><span data-rep-u="${esc(id)}"></span></div>`}
+      <p class="linha-denuncia">${botaoDenuncia("comprador", id, c.exemplo)}</p>
       <div class="tags" style="margin:8px 0 6px">${c.exemplo ? `<span class="etiqueta exemplo">Exemplo</span>` : `<span class="etiqueta ok">CNPJ verificado</span>`}
         ${ab === null ? "" : `<span class="etiqueta ${ab ? "ok" : "ruim"}">${ab ? "Aberto agora" : "Fechado agora"}</span>`}
         ${c.faz_coleta || busca > 0 ? `<span class="etiqueta">Busca no local${busca > 0 ? ` até ${String(busca).replace(".0", "")} km` : ""}</span>` : `<span class="etiqueta">Só no balcão</span>`}
@@ -1662,6 +1663,7 @@
           <button type="button" class="btn btn-secundario fechar">Fechar</button></div>`}</div>`;
       if (!a.exemplo) $(".modal", fundo).insertAdjacentHTML("beforeend", `<p class="compartilhar"><a class="btn btn-zap" href="${esc(zapAnuncio(a))}" target="_blank" rel="noopener">Mandar no WhatsApp</a>
         <span class="suave">Conhece um comprador para este material? Mande o anúncio para ele.</span></p>`);
+      $(".modal", fundo).insertAdjacentHTML("beforeend", `<p class="linha-denuncia">${botaoDenuncia("anuncio", a.id, a.exemplo)}</p>`);
       document.body.appendChild(fundo);
       const fechar = () => { fundo.remove(); if (location.hash.includes("?")) history.replaceState(null, "", `${location.pathname}${location.search}#/anuncios`); };
       fundo.addEventListener("click", (e) => { if (e.target === fundo || e.target.closest(".fechar")) fechar(); });
@@ -1773,6 +1775,46 @@
       ocupado(b, async () => { const { error: er } = await sb.rpc("slv_retirar_oferta", { p_oferta: Number(b.dataset.retirar) }); if (er) throw er; avisar("Oferta retirada.", "ok"); window.Acomp.desfez("oferta"); ir("minhas-ofertas"); });
     });
   };
+
+  // ── denúncia: qualquer pessoa, mesmo sem cadastro, avisa a equipe (furto, golpe, anúncio falso) ──
+  const MOTIVOS_DENUNCIA = [
+    ["furto", "Pode ser material furtado (fio ou cabo da rede, tampa de bueiro, placa, grade)"],
+    ["falso", "Anúncio falso ou que não existe"],
+    ["contato", "Pôs telefone, e-mail ou link no anúncio"],
+    ["golpe", "Tentativa de golpe ou calote"],
+    ["outro", "Outro motivo"],
+  ];
+  const botaoDenuncia = (tipo, id, exemplo) => `<button type="button" class="btn-denuncia" data-denuncia-tipo="${tipo}" data-denuncia-id="${esc(String(id))}" data-exemplo="${exemplo ? 1 : 0}">⚑ Denunciar</button>`;
+  function abrirDenuncia(tipo, id, exemplo) {
+    const fundo = document.createElement("div");
+    fundo.className = "modal-fundo";
+    fundo.innerHTML = `<form class="modal" role="dialog" aria-modal="true" aria-labelledby="den-t">
+      <div class="cab"><h2 id="den-t" style="margin:0">Denunciar</h2><button type="button" class="btn-icone fechar" aria-label="Fechar">✕</button></div>
+      <p class="suave">A equipe do Sucata Livre analisa cada denúncia. Ninguém fica sabendo quem denunciou.</p>
+      <fieldset class="motivos"><legend>O que está errado?</legend>
+        ${MOTIVOS_DENUNCIA.map(([v, t], i) => `<label class="check"><input type="radio" name="motivo" value="${v}" ${i ? "" : "checked"}><span>${t}</span></label>`).join("")}</fieldset>
+      <label for="den-texto">Quer contar o que viu? <small class="suave">(opcional)</small></label>
+      <textarea id="den-texto" maxlength="300" rows="3"></textarea>
+      <p class="aviso-ref">Se um crime está acontecendo agora, ligue <b>190</b>.</p>
+      <div class="acoes"><button type="submit" class="btn btn-primario">Enviar denúncia</button><button type="button" class="btn btn-secundario fechar">Cancelar</button></div>
+    </form>`;
+    document.body.appendChild(fundo);
+    fundo.addEventListener("click", (e) => { if (e.target === fundo || e.target.closest(".fechar")) fundo.remove(); });
+    $("form", fundo).addEventListener("submit", (e) => {
+      e.preventDefault();
+      ocupado(e.submitter ?? $("[type=submit]", fundo), async () => {
+        if (exemplo) { fundo.remove(); avisar("Este é um anúncio de exemplo, então a denúncia não foi registrada. Nos anúncios de verdade ela vai direto para a equipe.", "info"); return; }
+        const { data, error } = await sb.rpc("slv_denunciar", { p_alvo_tipo: tipo, p_alvo_id: String(id), p_motivo: $("[name=motivo]:checked", fundo).value, p_texto: $("#den-texto", fundo).value });
+        if (error) throw error;
+        fundo.remove();
+        avisar(data?.status === "repetida" ? "Você já denunciou isto hoje. A equipe já está vendo." : "Denúncia enviada. Obrigado por ajudar a manter o Sucata Livre limpo.", "ok");
+      });
+    });
+  }
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-denuncia-tipo]"); if (!b) return;
+    abrirDenuncia(b.dataset.denunciaTipo, b.dataset.denunciaId, b.dataset.exemplo === "1");
+  });
 
   // ── avaliação mútua: depois do negócio, quem vende avalia quem compra e vice-versa (às cegas) ──
   const um = (v) => Number(v).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });

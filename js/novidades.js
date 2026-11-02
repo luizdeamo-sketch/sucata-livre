@@ -1,6 +1,14 @@
 // Sucata Livre · o que mudou em cada versão (aparece depois que a pessoa clica em Atualizar).
 window.NOVIDADES = [
   {
+    versao: "2026-11-02-23",
+    data: "02/11/2026",
+    itens: [
+      "Botão Denunciar em cada anúncio e na página de cada comprador: material que pode ser furtado, anúncio falso, golpe ou contato no anúncio. Não precisa de cadastro, e ninguém fica sabendo quem denunciou.",
+      "Três denúncias de material furtado tiram o anúncio do ar até a equipe olhar.",
+    ],
+  },
+  {
     versao: "2026-11-02-22",
     data: "02/11/2026",
     itens: [
