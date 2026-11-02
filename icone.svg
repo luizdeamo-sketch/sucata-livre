@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="512" height="512" role="img" aria-label="Sucata Livre">
+  <!-- Ícone do app (tela inicial do celular, favicon): quadrado verde-escuro, símbolo claro -->
+  <rect width="64" height="64" rx="14" fill="#155c39"/>
+  <g transform="translate(9.6 7.4) scale(0.7)">
+    <path fill="#ffffff" d="M32 3C19.3 3 9.5 12.6 9.5 25.2 9.5 40.6 32 61 32 61s22.5-20.4 22.5-35.8C54.5 12.6 44.7 3 32 3z"/>
+    <path fill="none" stroke="#155c39" stroke-width="5.5" stroke-linecap="round" d="M38.75 16.96A10.5 10.5 0 1 1 27.56 15.48"/>
+    <path fill="#155c39" d="M35 12.7 25.4 10.3 29.4 20.8z"/>
+  </g>
+</svg>
