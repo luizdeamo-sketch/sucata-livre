@@ -621,3 +621,27 @@ body { background: var(--fundo); }
   .entrar-opcoes { grid-template-columns: 1fr 1fr; }
   .entrar-opcoes .suave { grid-column: 1 / -1; }
 }
+
+/* preço da sucata hoje: placar de preços + boletim pronto para o WhatsApp */
+.preco-metal { display: grid; gap: 14px; }
+.preco-metal h1 { margin: 0; }
+.pm-topo { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.pm-dolar { display: grid; gap: 4px; align-content: center; background: var(--grafite, #1d2024); color: #f3f3ef; border-color: transparent; }
+.pm-dolar .rot { font-size: .8rem; letter-spacing: .1em; text-transform: uppercase; color: var(--marca); font-weight: 800; }
+.pm-dolar b { font: 900 2.4rem/1 var(--f-titulo); font-variant-numeric: tabular-nums; }
+.pm-dolar small { color: #c9ccc4; }
+.pm-chamada { display: grid; gap: 6px; align-content: center; }
+.pm-chamada b { font: 800 1.5rem/1.1 var(--f-titulo); }
+.pm-chamada .acoes { margin: 6px 0 0; }
+.pm-grade { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
+.pm-item { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; align-items: center; text-decoration: none; color: inherit; padding: 14px; }
+.pm-item .selo, .pm-item > :first-child { grid-row: span 2; }
+.pm-nome { font-weight: 800; }
+.pm-valor { font: 900 1.6rem/1 var(--f-titulo); font-variant-numeric: tabular-nums; color: var(--oxido); }
+.pm-valor small { font: 600 .9rem var(--f-texto); color: var(--suave); }
+.pm-fonte { margin: 0; font-size: .92rem; }
+.pm-boletim h2 { margin: 0 0 4px; }
+.pm-texto { white-space: pre-wrap; font: 15px/1.5 var(--f-texto); background: var(--fundo, #ebece7); border: 1px dashed var(--linha-forte, #c7c9c2); border-radius: 10px; padding: 12px 14px; margin: 10px 0; overflow-x: auto; }
+.preco-metal > *, .pm-topo > *, .pm-grade > * { min-width: 0; }
+.preco-metal .secao-sub { white-space: normal; }
+.pm-texto { overflow-wrap: anywhere; }

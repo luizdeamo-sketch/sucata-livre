@@ -1,6 +1,14 @@
 // Sucata Livre · o que mudou em cada versão (aparece depois que a pessoa clica em Atualizar).
 window.NOVIDADES = [
   {
+    versao: "2026-11-02-19",
+    data: "02/11/2026",
+    itens: [
+      "Preço da sucata hoje: todos os materiais de Salto e região e o dólar do dia, grátis e sem cadastro. Está no menu e na página de entrada.",
+      "Boletim da semana pronto: toque em Mandar no WhatsApp e mande para o seu grupo.",
+    ],
+  },
+  {
     versao: "2026-11-02-18",
     data: "02/11/2026",
     itens: [

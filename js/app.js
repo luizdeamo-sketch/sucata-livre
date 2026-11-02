@@ -502,7 +502,7 @@
   function montarMenu() {
     const logado = !!estado.sessao;
     // três grupos: a vitrine (aberta a todos), a conta (cada papel) e o Sucata Livre; ícones de traço, como na barra
-    const vitrine = [["inicio", "Início", "inicio"], ["anuncios", "Material à venda", "comprar"], ["quem-compra", "Quem compra", "vender"], ["quanto-vale", "Quanto vale a minha sucata", "preco"]];
+    const vitrine = [["inicio", "Início", "inicio"], ["anuncios", "Material à venda", "comprar"], ["quem-compra", "Quem compra", "vender"], ["preco-do-metal", "Preço da sucata hoje", "preco"], ["quanto-vale", "Quanto vale a minha sucata", "preco"]];
     if (estado.vendedor || !estado.comprador) vitrine.push(["anunciar", estado.vendedor ? "Anunciar" : "Anunciar minha sucata", "anunciar"]);
     const conta = [];
     if (estado.vendedor) conta.push(["meus-anuncios", "Meus anúncios", "meus"], ["cadastro", "Meu cadastro", "pessoa"]);
@@ -567,7 +567,7 @@
   function telaInicial() { return "inicio"; } // como nos classificados grandes: todo mundo começa pela vitrine
 
   // vitrine aberta: ver é livre; fazer negócio (WhatsApp, oferta, anúncio) pede cadastro
-  const PUBLICAS = new Set(["inicio", "anuncios", "quem-compra", "quanto-vale", "anunciar", "comprador", "instalar", "creditos", "apresentacao", "entrar", "cadastro"]);
+  const PUBLICAS = new Set(["inicio", "anuncios", "quem-compra", "quanto-vale", "anunciar", "comprador", "instalar", "creditos", "apresentacao", "entrar", "cadastro", "preco-do-metal"]);
   const VOLTA = "slv-voltar";
   const guardarVolta = (tela) => { try { sessionStorage.setItem(VOLTA, tela); } catch {} };
   const lerVolta = () => { try { return sessionStorage.getItem(VOLTA); } catch { return null; } };
@@ -687,6 +687,7 @@
   const BANNERS = [
     { titulo: "Quanto vale a sua sucata?", texto: "Escolha o material, diga o peso e veja o preço da região na hora.", botao: "Calcular agora", link: "#/quanto-vale", foto: 104 },
     { titulo: "Anuncie grátis. Receba ofertas.", texto: "Sem pôr preço: os compradores perto mandam oferta e você escolhe a melhor.", botao: "Anunciar minha sucata", link: "#/anunciar", foto: 101 },
+    { titulo: "Preço da sucata hoje", texto: "Latinha, cobre, ferro, papelão e PET em Salto e região, mais o dólar do dia. Grátis.", botao: "Ver o preço", link: "#/preco-do-metal", foto: 102 },
     { titulo: "Tem ferro-velho ou depósito?", texto: "Veja o material à venda perto e anuncie o que você compra.", botao: "Ver material à venda", link: "#/anuncios", foto: 201 },
   ];
   let rodaBanner = null;
@@ -730,7 +731,7 @@
         ${compradores.length ? `<div class="prateleira redondos">${compradores.slice(0, 12).map(redondo).join("")}</div>` : `<div class="cartao vazio">Ainda sem comprador anunciando perto.</div>`}
       </section>
       <section class="secao">
-        <div class="secao-cab"><h2>Preço da região hoje</h2><a href="#/quanto-vale">Calcular o meu ›</a></div>
+        <div class="secao-cab"><h2>Preço da região hoje</h2><a href="#/preco-do-metal">Ver todos e o boletim ›</a></div>
         <p class="secao-sub">R$ por kg pago no balcão. Não mostra o preço de nenhum comprador.</p>
         <div class="prateleira precos">${ref.map((r) => `<a class="preco-card" href="#/quanto-vale">${selo(r.material_id)}<span><b>${esc(MAT()[r.material_id]?.nome ?? "")}</b>
           <span class="num">${reais2(r.minimo)} a ${reais2(r.maximo)}</span></span></a>`).join("")}</div>
@@ -760,6 +761,72 @@
   };
 
   // ── página pública do comprador: confiança antes do negócio ─────────────
+  // ── preço do metal: sempre grátis (decisão do Luiz, 02/11). Região + dólar do Banco Central; LME depois da licença ──
+  const BOLETIM_MATERIAIS = [101, 102, 104, 105, 201, 301, 401];
+  async function dolarPtax() {
+    const f = (d) => `${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}-${d.getFullYear()}`;
+    const hoje = new Date(), antes = new Date(Date.now() - 12 * 864e5);
+    const url = `https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoDolarPeriodo(dataInicial=@i,dataFinalCotacao=@f)?@i='${f(antes)}'&@f='${f(hoje)}'&$format=json&$orderby=dataHoraCotacao%20desc`;
+    const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 6000);
+    try {
+      const r = await fetch(url, { signal: ctl.signal }); const j = await r.json();
+      const v = j.value ?? []; if (!v.length) return null;
+      const semana = v.find((x) => Date.now() - new Date(x.dataHoraCotacao.replace(" ", "T")) >= 6 * 864e5) ?? v[v.length - 1];
+      return { valor: v[0].cotacaoVenda, quando: v[0].dataHoraCotacao, semana: semana.cotacaoVenda };
+    } catch { return null; } finally { clearTimeout(t); }
+  }
+  const linkCanal = () => `${location.origin}${location.pathname}?origem=canal#/preco-do-metal`;
+  function textoBoletim(dolar) {
+    const M = MAT(), d = new Date();
+    const linhas = BOLETIM_MATERIAIS.map((id) => estado.ref?.[id]).filter(Boolean)
+      .map((r) => `${M[r.material_id]?.nome ?? ""}: R$ ${reais2(r.minimo)} a ${reais2(r.maximo)} o kg`);
+    return [`📊 *Preço da Sucata · Salto e região*`, `Semana de ${d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}`, ``, ...linhas, ``,
+      dolar ? `Dólar (Banco Central): R$ ${reais2(dolar.valor)}` : null,
+      ``, `Quanto vale a sua? Calcule e receba oferta de vários compradores, grátis:`, linkCanal()].filter((x) => x !== null).join("\n");
+  }
+  TELAS["preco-do-metal"] = async (el) => {
+    await carregarCatalogo();
+    const M = MAT();
+    const ref = Object.values(estado.ref ?? {});
+    el.innerHTML = `
+      <div class="preco-metal">
+        <h1>Preço da sucata hoje</h1>
+        <p class="secao-sub">Salto e região · R$ por kg pago no balcão. Grátis, sem cadastro.</p>
+        <div class="pm-topo">
+          <div class="cartao pm-dolar" id="pm-dolar"><span class="rot">Dólar hoje</span><b>…</b><small class="suave">Banco Central (PTAX)</small></div>
+          <div class="cartao pm-chamada"><b>Quanto vale a sua?</b><span>Diga o peso e veja na hora. Depois anuncie e receba oferta de vários compradores.</span>
+            <div class="acoes"><a class="btn btn-primario" href="#/quanto-vale">Calcular</a><a class="btn btn-secundario" href="#/anunciar">Anunciar grátis</a></div></div>
+        </div>
+        <div class="pm-grade">${ref.map((r) => `<a class="cartao pm-item" href="#/quanto-vale">${selo(r.material_id)}
+          <span class="pm-nome">${esc(M[r.material_id]?.nome ?? "")}${r.fonte === "estimativa" ? ` <small class="suave">(estimativa)</small>` : ""}</span>
+          <span class="pm-valor">R$ ${reais2(r.minimo)} <small>a</small> ${reais2(r.maximo)}</span></a>`).join("")}</div>
+        <p class="suave pm-fonte">Começa com a pesquisa de balcão da equipe e passa a usar a média das vendas do Sucata Livre quando há volume. Não mostra o preço de nenhum comprador.
+          Cotação internacional: <a href="https://www.lme.com/" target="_blank" rel="noopener">site da LME</a>.</p>
+        <div class="cartao pm-boletim">
+          <h2>Boletim da semana</h2>
+          <p class="suave">Pronto para mandar no WhatsApp, no seu grupo ou para um cliente.</p>
+          <pre id="pm-texto" class="pm-texto"></pre>
+          <div class="acoes"><button type="button" class="btn btn-primario" id="pm-zap">Mandar no WhatsApp</button><button type="button" class="btn btn-secundario" id="pm-copiar">Copiar texto</button></div>
+        </div>
+      </div>`;
+    let dolar = null;
+    const pintar = () => { $("#pm-texto", el).textContent = textoBoletim(dolar); };
+    pintar();
+    dolarPtax().then((d) => {
+      dolar = d; const box = $("#pm-dolar", el);
+      if (!d) { box.querySelector("b").textContent = "sem dado agora"; return; }
+      const varia = d.semana ? (d.valor / d.semana - 1) * 100 : 0;
+      box.querySelector("b").textContent = `R$ ${reais2(d.valor)}`;
+      box.querySelector("small").textContent = `Banco Central (PTAX) · ${d.quando.slice(8, 10)}/${d.quando.slice(5, 7)} · ${varia >= 0 ? "▲" : "▼"} ${reais2(Math.abs(varia))}% na semana`;
+      pintar();
+    });
+    $("#pm-zap", el).addEventListener("click", () => { location.href = `https://wa.me/?text=${encodeURIComponent(textoBoletim(dolar))}`; });
+    $("#pm-copiar", el).addEventListener("click", async () => {
+      try { await navigator.clipboard.writeText(textoBoletim(dolar)); avisar("Texto copiado. É só colar no WhatsApp.", "ok"); }
+      catch { const s = getSelection(), r = document.createRange(); r.selectNodeContents($("#pm-texto", el)); s.removeAllRanges(); s.addRange(r); avisar("Texto selecionado: copie e cole no WhatsApp.", "info"); }
+    });
+  };
+
   TELAS.comprador = async (el) => {
     await carregarCatalogo();
     const id = new URLSearchParams(location.hash.split("?")[1] ?? "").get("id");
