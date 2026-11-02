@@ -1,6 +1,8 @@
 // Sucata Livre · app (v2 classificado: quem vende anuncia sem preço, quem compra manda oferta que só o vendedor vê)
 (function () {
   const C = window.SLV_CONFIG;
+  // pasta do app (onde está o index.html), tirada do endereço deste arquivo: vale no site e na página de teste
+  const BASE_APP = new URL("..", document.currentScript?.src ?? location.href).href;
   const sb = window.supabase.createClient(C.url, C.anon, { auth: { persistSession: true, storageKey: "slv-auth" } });
 
   // ── utilidades ───────────────────────────────────────────────────────────
@@ -160,6 +162,16 @@
   const selo = (id) => { const m = MAT()[id]; return m ? `<span class="cod ${esc(m.selo_classe ?? "")}" title="${esc(m.nome)}"><b>${esc(m.selo ?? "?")}</b><small>${esc(m.selo_sub ?? "")}</small></span>` : ""; };
   const selosItens = (itens) => `<span class="cods">${(itens ?? []).slice(0, 3).map((i) => selo(i.material_id)).join("")}</span>`;
   const totalKg = (itens) => (itens ?? []).reduce((s, i) => s + Number(i.peso_kg), 0);
+  // foto realista de cada material (js/fotos-materiais.js, fotos de licença livre com crédito): entra quando o anúncio
+  // não tem foto própria, sempre com a marca "Foto ilustrativa" para ninguém achar que é o material anunciado
+  const FOTOS = () => window.SLV_FOTOS_MATERIAIS ?? {};
+  const fotoMaterial = (id) => FOTOS()[id] ? `${BASE_APP}img/materiais/${FOTOS()[id].arquivo}` : null;
+  const materialPrincipal = (itens) => {
+    const ref = estado.ref ?? {};
+    return [...(itens ?? [])].sort((a, b) => (b.peso_kg * (ref[b.material_id]?.maximo ?? 1)) - (a.peso_kg * (ref[a.material_id]?.maximo ?? 1)))[0]?.material_id;
+  };
+  const capaIlustrativa = (id) => fotoMaterial(id)
+    ? `<img src="${esc(fotoMaterial(id))}" alt="" loading="lazy"><span class="ilustrativa">Foto ilustrativa</span>` : null;
   const abertoAgora = (h) => {
     if (!h?.seg_sex) return null;
     const d = new Date(), dia = d.getDay(), agora = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
@@ -399,6 +411,30 @@
     ligarCalculadora(el);
   };
 
+  // ── fotos e características do anúncio ─────────────────────────────────
+  const MAX_FOTOS = 5;
+  // a observação não leva telefone, e-mail nem link (o banco também recusa): o contato só sai no negócio aceito
+  const temContato = (t) => !!t && (/(\d[\s.()/-]*){8,}/.test(t) || /(https?:\/\/|www\.|wa\.me|@[a-z0-9])/i.test(t));
+  // reduz a foto no próprio celular (lado maior 1600 px, JPEG): sobe rápido e gasta pouco pacote de dados
+  async function comprimirFoto(file) {
+    try {
+      const img = await createImageBitmap(file);
+      const k = Math.min(1, 1600 / Math.max(img.width, img.height));
+      const c = document.createElement("canvas"); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      const blob = await new Promise((ok) => c.toBlob(ok, "image/jpeg", 0.8));
+      return blob ? new File([blob], "foto.jpg", { type: "image/jpeg" }) : file;
+    } catch { return file; }
+  }
+  const ROT_ESTADO = { limpo: "Limpo, separado", misturado: "Misturado", sujo: "Com sujeira" };
+  const ROT_EMBALAGEM = { solto: "Solto", sacos: "Em sacos", fardo: "Em fardo", prensado: "Prensado" };
+  const ROT_RETIRADA = { comercial: "Retirar em horário comercial", manha: "Retirar de manhã", tarde: "Retirar à tarde", fim_semana: "Retirar no fim de semana", combinar: "Retirada a combinar" };
+  const etiquetasCaracteristicas = (a) => [
+    a.estado && `<span class="etiqueta ${a.estado === "limpo" ? "ok" : ""}">${ROT_ESTADO[a.estado]}</span>`,
+    a.embalagem && `<span class="etiqueta">${ROT_EMBALAGEM[a.embalagem]}${a.volumes ? ` · ${a.volumes} ${a.embalagem === "sacos" ? (a.volumes === 1 ? "saco" : "sacos") : (a.volumes === 1 ? "fardo" : "fardos")}` : ""}</span>`,
+    a.retirada && `<span class="etiqueta">${ROT_RETIRADA[a.retirada]}</span>`,
+  ].filter(Boolean).join("");
+
   // link próprio do anúncio e mensagem pronta para o WhatsApp (o canal onde catador e ferro-velho já estão)
   const linkAnuncio = (id) => `${location.origin}${location.pathname}#/anuncios?a=${id}`;
   const zapAnuncio = (a) => `https://wa.me/?text=${encodeURIComponent(`Sucata à venda: ${tituloItens(a.itens)}${a.bairro || a.cidade ? ` em ${[a.bairro, a.cidade].filter(Boolean).join(", ")}` : ""}. Faça a sua oferta pelo Sucata Livre: ${linkAnuncio(a.id)}`)}`;
@@ -429,6 +465,26 @@
       + (logado ? `<button type="button" id="btn-sair">🚪 Sair</button>` : "");
     $("#btn-sair")?.addEventListener("click", async () => { await sb.auth.signOut({ scope: "local" }); location.hash = "#/"; location.reload(); });
     if (!logado) $("#topo-nome").innerHTML = `<a class="btn btn-secundario btn-topo" href="#/entrar">Entrar</a>`;
+    montarBarra();
+  }
+
+  // barra de app no celular: Comprar, Vender, Anunciar (no meio, amarelo), Meus/Preço e Mais (abre o menu)
+  const ICONE = {
+    comprar: '<path d="M10.5 18a7.5 7.5 0 1 0 0-15 7.5 7.5 0 0 0 0 15zM21 21l-5.2-5.2"/>',
+    vender: '<path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>',
+    anunciar: '<path d="M12 5v14M5 12h14"/>',
+    meus: '<path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/>',
+    preco: '<path d="M12 3v18M17 7.5c0-1.9-2.2-3-5-3s-5 1.1-5 3 2 2.7 5 3.5 5 1.6 5 3.5-2.2 3-5 3-5-1.1-5-3"/>',
+    mais: '<path d="M4 7h16M4 12h16M4 17h16"/>',
+  };
+  function montarBarra() {
+    if (!$("#barra-app")) return;
+    const meus = estado.vendedor ? ["meus-anuncios", "Meus", "meus"] : estado.comprador ? ["minhas-ofertas", "Ofertas", "meus"] : ["quanto-vale", "Preço", "preco"];
+    const itens = [["anuncios", "Comprar", "comprar"], ["quem-compra", "Vender", "vender"], ["anunciar", "Anunciar", "anunciar"], meus];
+    $("#barra-app").innerHTML = itens.map(([t, r, i]) => `<a href="#/${t}" data-tela="${t}" class="${t === "anunciar" ? "barra-anunciar" : ""}">
+        <svg viewBox="0 0 24 24" aria-hidden="true">${ICONE[i]}</svg><span>${r}</span></a>`).join("")
+      + `<button type="button" id="barra-mais"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONE.mais}</svg><span>Mais</span></button>`;
+    $("#barra-mais").addEventListener("click", () => abrirMenu($("#menu").hidden));
   }
 
   function abrirMenu(abrir) { $("#menu").hidden = !abrir; $("#menu-fundo").hidden = !abrir; }
@@ -442,7 +498,7 @@
   }
 
   // vitrine aberta: ver é livre; fazer negócio (WhatsApp, oferta, anúncio) pede cadastro
-  const PUBLICAS = new Set(["anuncios", "quem-compra", "quanto-vale", "anunciar", "comprador", "instalar", "apresentacao", "entrar"]);
+  const PUBLICAS = new Set(["anuncios", "quem-compra", "quanto-vale", "anunciar", "comprador", "instalar", "creditos", "apresentacao", "entrar"]);
   const VOLTA = "slv-voltar";
   const guardarVolta = (tela) => { try { sessionStorage.setItem(VOLTA, tela); } catch {} };
   const lerVolta = () => { try { return sessionStorage.getItem(VOLTA); } catch { return null; } };
@@ -476,7 +532,7 @@
     // um contêiner novo por tela, para os ouvintes de uma tela não sobrarem na seguinte
     const el = document.createElement("div");
     $("#tela").replaceChildren(el);
-    $$("#menu a").forEach((a) => a.classList.toggle("ativo", a.dataset.tela === nome));
+    $$("#menu a, #barra-app a").forEach((a) => a.classList.toggle("ativo", a.dataset.tela === nome));
     el.innerHTML = `<p class="suave">Carregando…</p>`;
     window.Acomp.tela(nome);
     try {
@@ -524,6 +580,17 @@
   const ehIphone = /iphone|ipad|ipod/i.test(navigator.userAgent);
   addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); pedidoInstalar = e; if (location.hash.startsWith("#/instalar")) rota(); });
   addEventListener("appinstalled", () => { pedidoInstalar = null; avisar("Sucata Livre instalado na sua tela inicial.", "ok"); });
+
+  // créditos das fotos ilustrativas (licenças livres pedem o nome do autor e a licença)
+  TELAS.creditos = async (el) => {
+    await carregarCatalogo();
+    const M = MAT();
+    el.innerHTML = `<h1>Créditos das fotos</h1>
+      <p>As fotos ilustrativas dos materiais vêm do Wikimedia Commons, com licença livre. Foram recortadas e reduzidas; as de licença CC BY-SA continuam sob a mesma licença.</p>
+      <div class="cartao"><table class="ref"><tbody>${Object.entries(FOTOS()).map(([id, f]) => `<tr><td><img src="${BASE_APP}img/materiais/${esc(f.arquivo)}" alt="" style="width:64px;height:42px;object-fit:cover;border-radius:6px"></td>
+        <td>${esc(M[id]?.nome ?? id)}<br><small class="suave">Foto: ${esc(f.autor)} · ${esc(f.licenca)}</small></td>
+        <td><a href="${esc(f.pagina)}" target="_blank" rel="noopener">Ver original</a></td></tr>`).join("")}</tbody></table></div>`;
+  };
   TELAS.instalar = async (el) => {
     el.innerHTML = `<h1>Instalar o Sucata Livre</h1>
       <p>Fica na tela inicial do celular, como um aplicativo: abre com um toque e ocupa quase nada de espaço. Não precisa de loja.</p>
@@ -613,6 +680,9 @@
       <div class="acoes">
         <a class="btn btn-primario" href="#/anuncios">Ver os anúncios</a>
         ${estado.sessao ? "" : `<a class="btn btn-secundario" href="#/entrar">Entrar ou criar cadastro</a>`}
+      </div>
+      <p class="suave" style="margin-top:18px"><a href="#/creditos">Créditos das fotos ilustrativas</a></p>
+      <div>
       </div>`;
   };
 
@@ -758,7 +828,7 @@
           <h2>${lista.length} comprador${lista.length === 1 ? "" : "es"} até ${estado.raio} km <small class="suave">${reserva ? "cadastrados (ainda sem anúncio de compra)" : "anúncios de compra"}</small></h2>
           ${avisoExemplos(lista)}
           ${lista.length ? `<div class="lista-compra">${lista.map((c, i) => { const ab = abertoAgora(c.horario); return `
-            <article class="cartao comprador"><div class="comprador-topo"><span class="pino">${i + 1}</span>
+            <article class="cartao comprador">${fotoMaterial(c.materiais?.[0]) ? `<div class="faixa-foto">${capaIlustrativa(c.materiais[0])}</div>` : ""}<div class="comprador-topo"><span class="pino">${i + 1}</span>
               <div class="cn"><span class="tags">${c.reserva ? "" : `<span class="etiqueta compra">Compra</span>`}${c.exemplo ? `<span class="etiqueta exemplo">Exemplo</span>` : ""}</span><h3><a class="nome-comprador" href="#/comprador?id=${esc(c.comprador_id)}">${esc(c.nome)}</a></h3><span class="suave">${esc([c.bairro, c.cidade].filter(Boolean).join(", "))}</span></div>
               <span class="km">≈ ${km(c.distancia_km)} km</span></div>
               <div class="cods" aria-label="Compra ${esc(nomesMateriais(c.materiais))}">${(c.materiais ?? []).map(selo).join("")}</div>
@@ -806,7 +876,7 @@
     function desenhar() {
       guardarRascunho(R);
       const cab = `<div class="passos-barra" aria-label="Passo ${R.passo} de 3">${[1, 2, 3].map((i) => `<span class="${i <= R.passo ? "on" : ""}"></span>`).join("")}</div>
-        <h1>${["O que você tem?", "Quanto, mais ou menos?", "Onde está o material?"][R.passo - 1]}</h1>`;
+        <h1>${["O que você tem?", "Fotos, peso e estado", "Onde está o material?"][R.passo - 1]}</h1>`;
       if (R.passo === 1) {
         const comRisco = Object.keys(R.itens).map(Number).filter((id) => M[id]?.pede_check_risco);
         el.innerHTML = cab + `<p class="suave">Toque em tudo o que você juntou. Pode escolher mais de um.</p>
@@ -822,15 +892,25 @@
               <span>Declaro que o material tem origem lícita. O comprador vê que o anúncio tem declaração de origem.</span></label></p>` : ""}</div>` : ""}
           <div class="acoes"><button type="button" class="btn btn-primario" data-ir="2">Continuar</button></div>`;
       } else if (R.passo === 2) {
-        el.innerHTML = cab + `<p class="suave">Não precisa ser exato. O comprador confere na balança.</p>
-          <div class="cartao">${Object.keys(R.itens).map((id) => `<div class="linha-preco"><span class="ico">${selo(id)}</span>
+        const opc = (campo, valor, rotulo) => `<button type="button" class="chip" data-car="${campo}" data-v="${valor}" aria-pressed="${R[campo] === valor}">${rotulo}</button>`;
+        el.innerHTML = cab + `
+          <div class="cartao fotos-anuncio"><h3>Fotos do material <small class="suave">(até ${MAX_FOTOS}, a primeira é a capa)</small></h3>
+            <p class="suave">Anúncio com foto recebe mais oferta. Mostre o material de perto e o monte inteiro.</p>
+            ${R.fotos.length ? `<div class="fotos-grade">${R.fotos.map((f, i) => `<figure><img src="${f.url}" alt="Foto ${i + 1} do material">${i === 0 ? `<figcaption>Capa</figcaption>` : ""}
+              <button type="button" class="tirar-foto" data-tirar-foto="${i}" aria-label="Tirar a foto ${i + 1}">✕</button></figure>`).join("")}</div>` : ""}
+            ${R.fotos.length < MAX_FOTOS ? `<div class="fotos-botoes">
+              <label class="btn btn-primario btn-foto">📷 Tirar foto<input type="file" id="foto" accept="image/*" capture="environment" hidden></label>
+              <label class="btn btn-secundario btn-foto">🖼 Da galeria<input type="file" id="foto-galeria" accept="image/*" multiple hidden></label></div>` : ""}</div>
+          <div class="cartao"><h3>Quanto, mais ou menos?</h3><p class="suave">Não precisa ser exato. O comprador confere na balança.</p>
+            ${Object.keys(R.itens).map((id) => `<div class="linha-preco"><span class="ico">${selo(id)}</span>
             <label for="kg${id}" style="margin:0">${esc(M[id].nome)}</label>
             <span class="kg"><input type="text" id="kg${id}" data-kg="${id}" inputmode="decimal" value="${R.itens[id] || ""}" placeholder="0"></span></div>`).join("")}
             <div class="estimativa" id="estimativa">${textoEstimativa(itensR())}</div></div>
-          <div class="cartao"><h3>Fotos do material <small class="suave">(até 3, opcional)</small></h3>
-            <p class="suave">Anúncio com foto recebe mais ofertas.</p>
-            <div class="anexos">${R.fotos.map((f) => `<img src="${f.url}" alt="Foto do material">`).join("")}</div>
-            ${R.fotos.length < 3 ? `<label class="btn btn-secundario" style="margin-top:10px">Tirar ou escolher foto<input type="file" id="foto" accept="image/*" multiple hidden></label>` : ""}</div>
+          <div class="cartao caracteristicas"><h3>Como está o material? <small class="suave">(ajuda o comprador a ofertar)</small></h3>
+            <p class="rot-car">Estado</p><div class="chips">${opc("estado", "limpo", "Limpo, separado")}${opc("estado", "misturado", "Misturado")}${opc("estado", "sujo", "Com sujeira")}</div>
+            <p class="rot-car">Como está guardado</p><div class="chips">${opc("embalagem", "solto", "Solto")}${opc("embalagem", "sacos", "Em sacos")}${opc("embalagem", "fardo", "Em fardo")}${opc("embalagem", "prensado", "Prensado")}</div>
+            ${["sacos", "fardo", "prensado"].includes(R.embalagem) ? `<div class="campos" style="margin-top:10px"><div><label for="volumes">Quantos ${R.embalagem === "sacos" ? "sacos" : "fardos"}?</label>
+              <input type="text" id="volumes" inputmode="numeric" value="${R.volumes ?? ""}" placeholder="Ex.: 3"></div></div>` : ""}</div>
           <div class="acoes"><button type="button" class="btn btn-secundario" data-ir="1">Voltar</button><button type="button" class="btn btn-primario" data-ir="3">Continuar</button></div>`;
       } else {
         el.innerHTML = cab + `<div class="cartao"><div class="campos"><div><label for="cep-an">CEP de onde está o material</label>
@@ -839,8 +919,15 @@
           <h2>O comprador pode buscar?</h2>
           <div class="chips"><button type="button" class="chip" data-busca="1" aria-pressed="${R.pode_buscar}">Sim, venham buscar</button>
             <button type="button" class="chip" data-busca="0" aria-pressed="${!R.pode_buscar}">Não, eu levo</button></div>
+          <h2>Quando pode retirar?</h2>
+          <div class="chips">${[["comercial", "Horário comercial"], ["manha", "De manhã"], ["tarde", "À tarde"], ["fim_semana", "Fim de semana"], ["combinar", "A combinar"]].map(([v, r]) =>
+            `<button type="button" class="chip" data-car="retirada" data-v="${v}" aria-pressed="${R.retirada === v}">${r}</button>`).join("")}</div>
+          <div style="margin-top:16px"><label for="obs-an">Observação <small class="suave">(opcional, até 300 letras)</small></label>
+            <textarea id="obs-an" maxlength="300" placeholder="Ex.: fio já descascado; latinha amassada; fica no quintal, de fácil acesso.">${esc(R.observacao ?? "")}</textarea>
+            <span class="dica">Não coloque telefone nem endereço: o seu contato só aparece para quem você aceitar.</span></div>
           <p class="suave" style="margin-top:12px">Seu telefone não aparece no anúncio. Só o comprador cuja oferta você aceitar vê o seu WhatsApp.</p></div>
           <div class="cartao"><h3>Resumo</h3><p>${esc(tituloItens(Object.entries(R.itens).filter(([, v]) => v > 0).map(([id, v]) => ({ material_id: Number(id), peso_kg: v }))))}</p>
+            <div class="tags">${etiquetasCaracteristicas(R)}</div>
             <p class="suave">${R.fotos.length} foto${R.fotos.length === 1 ? "" : "s"}${R.risco ? " · com declaração de origem" : ""}</p>
             <div class="estimativa">${textoEstimativa(itensR())}</div></div>
           ${estado.vendedor ? "" : `<p class="suave">Para publicar, pedimos o seu celular (chega um código por SMS) e um cadastro rápido. Nada do que você preencheu se perde.</p>`}
@@ -864,14 +951,20 @@
       const box = $("#estimativa", el); if (box) box.innerHTML = textoEstimativa(itensR());
     });
 
+    const guardarCampos = () => {
+      const v = $("#volumes", el); if (v) R.volumes = Number(digitos(v.value)) || null;
+      const o = $("#obs-an", el); if (o) R.observacao = o.value;
+    };
     el.addEventListener("click", (e) => {
       const t = e.target.closest("button"); if (!t) return;
+      if (t.dataset.car) { guardarPesos(); guardarCampos(); R[t.dataset.car] = R[t.dataset.car] === t.dataset.v ? null : t.dataset.v; desenhar(); return; }
+      if (t.dataset.tirarFoto) { guardarPesos(); guardarCampos(); R.fotos.splice(Number(t.dataset.tirarFoto), 1); desenhar(); return; }
       if (t.dataset.mat) { const id = t.dataset.mat; if (id in R.itens) delete R.itens[id]; else R.itens[id] = 0; desenhar(); return; }
       if (t.dataset.risco) { R.risco = t.dataset.risco === "sim"; if (!R.risco) R.declarou = false; desenhar(); return; }
       if (t.dataset.busca) { R.pode_buscar = t.dataset.busca === "1"; desenhar(); return; }
       if (t.dataset.ir) {
         const para = Number(t.dataset.ir);
-        if (R.passo === 2) guardarPesos();
+        if (R.passo >= 2) { guardarPesos(); guardarCampos(); }
         if (para === 2 && R.passo === 1) {
           if (!Object.keys(R.itens).length) return avisar("Toque em pelo menos um material.", "erro");
           const temRisco = Object.keys(R.itens).some((id) => M[id]?.pede_check_risco);
@@ -882,18 +975,21 @@
         R.passo = para; desenhar(); scrollTo(0, 0); return;
       }
       if (t.id === "publicar") ocupado(t, async () => {
+        guardarCampos();
         if (digitos(R.cep).length !== 8) throw new Error("Digite o CEP de onde está o material.");
+        if (temContato(R.observacao)) throw new Error("Tire o telefone, e-mail ou link da observação: o seu contato só aparece para quem você aceitar.");
         if (!estado.vendedor) { R.aguardando = true; guardarRascunho(R); precisa("vendedor", "anunciar"); return; }
         if (digitos(R.cep) !== estado.vendedor.cep && !R.geo) await consultarCep(digitos(R.cep));
         const caminhos = [];
         for (const [i, f] of R.fotos.entries()) {
-          const ext = (f.file.type.split("/")[1] || "jpg").replace("jpeg", "jpg");
-          const caminho = `${estado.sessao.user.id}/${Date.now()}-${i + 1}.${ext}`;
-          const { error } = await sb.storage.from("slv-anuncios").upload(caminho, f.file, { contentType: f.file.type });
+          if (!f.file) continue; // foto perdida num recarregamento da página: segue sem ela
+          const caminho = `${estado.sessao.user.id}/${Date.now()}-${i + 1}.jpg`;
+          const { error } = await sb.storage.from("slv-anuncios").upload(caminho, f.file, { contentType: "image/jpeg" });
           if (!error) caminhos.push(caminho);
         }
         const itens = Object.entries(R.itens).filter(([, v]) => v > 0).map(([id, v]) => ({ material_id: Number(id), peso_kg: v }));
-        const { error } = await sb.rpc("slv_publicar_anuncio", { p_itens: itens, p_cep: digitos(R.cep), p_pode_buscar: R.pode_buscar, p_fotos: caminhos, p_item_risco: !!R.risco });
+        const { error } = await sb.rpc("slv_publicar_anuncio", { p_itens: itens, p_cep: digitos(R.cep), p_pode_buscar: R.pode_buscar, p_fotos: caminhos, p_item_risco: !!R.risco,
+          p_estado: R.estado ?? null, p_embalagem: R.embalagem ?? null, p_volumes: R.volumes ?? null, p_retirada: R.retirada ?? null, p_observacao: (R.observacao ?? "").trim() || null });
         if (error) throw error;
         limparRascunho(); calc.itens = {};
         avisar("Anúncio publicado. Divulgue no WhatsApp para receber mais ofertas.", "ok");
@@ -902,13 +998,17 @@
     });
     el.addEventListener("change", (e) => {
       if (e.target.id === "declaro") { R.declarou = e.target.checked; return; }
-      if (e.target.id === "foto") {
-        guardarPesos();
-        for (const file of [...e.target.files].slice(0, 3 - R.fotos.length)) {
-          if (file.size > 6 * 1024 * 1024) { avisar("Foto grande demais (máximo 6 MB).", "erro"); continue; }
-          R.fotos.push({ file, url: URL.createObjectURL(file) });
-        }
-        desenhar();
+      if (e.target.id === "foto" || e.target.id === "foto-galeria") {
+        guardarPesos(); guardarCampos();
+        const arquivos = [...e.target.files].slice(0, MAX_FOTOS - R.fotos.length);
+        (async () => {
+          for (const original of arquivos) {
+            if (original.size > 20 * 1024 * 1024) { avisar("Foto grande demais (máximo 20 MB).", "erro"); continue; }
+            const file = await comprimirFoto(original);
+            R.fotos.push({ file, url: URL.createObjectURL(file) });
+          }
+          desenhar();
+        })();
       }
     });
     desenhar();
@@ -928,6 +1028,7 @@
       ${lista.length ? `<div class="lista">${lista.map((a) => `
         <article class="cartao" data-anuncio="${a.id}">
           <div class="cab"><h3>${esc(tituloItens(a.itens))}</h3><span class="etiqueta ${SIT_ANUNCIO[a.status][1]}">${SIT_ANUNCIO[a.status][0]}</span></div>
+          ${etiquetasCaracteristicas(a) ? `<div class="tags" style="margin:4px 0 8px">${etiquetasCaracteristicas(a)}</div>` : ""}
           <p class="suave">${esc([a.bairro, a.cidade].filter(Boolean).join(", "))} · publicado ${ha(a.criado_em)}${a.status === "publicado" ? ` · sai do ar ${new Date(a.expira_em).toLocaleDateString("pt-BR")}` : ""}</p>
           <p>${a.ofertas ? `${a.ofertas} oferta${a.ofertas > 1 ? "s" : ""} · melhor: <b class="valor">${reais(a.melhor_oferta)}</b>` : `<span class="suave">Ainda sem ofertas.</span>`}</p>
           <div class="ofertas-lugar"></div>
@@ -1138,11 +1239,12 @@
           ${avisoExemplos(lista)}
           ${lista.length ? `<div class="grade-anuncios">${lista.map((a) => `
             <button type="button" class="anuncio" data-abrir="${a.id}">
-              <span class="foto">${a._foto ? `<img src="${esc(a._foto)}" alt="">` : selosItens(a.itens)}<span class="dist">≈ ${km(a.distancia_km)} km</span></span>
+              <span class="foto">${a._foto ? `<img src="${esc(a._foto)}" alt="Foto do material">`
+                : capaIlustrativa(materialPrincipal(a.itens)) ? capaIlustrativa(materialPrincipal(a.itens)) + `<span class="selos-sobre">${selosItens(a.itens)}</span>` : selosItens(a.itens)}<span class="dist">≈ ${km(a.distancia_km)} km</span>${(a.fotos?.length ?? 0) > 1 ? `<span class="n-fotos">📷 ${a.fotos.length}</span>` : ""}</span>
               <span class="txt"><b>${esc(tituloItens(a.itens))}</b>
                 <small class="suave">${esc([a.bairro, a.cidade].filter(Boolean).join(", "))} · ${ha(a.criado_em)}</small>
                 ${(() => { const f = faixaItens(a.itens); return f ? `<small class="estima">Na região vale <b>${reais0(f[0])} a ${reais0(f[1])}</b></small>` : ""; })()}
-                <span class="tags">${a.exemplo ? `<span class="etiqueta exemplo">Exemplo</span>` : ""}${a.pode_buscar ? `<span class="etiqueta ok">Pode buscar</span>` : `<span class="etiqueta">Leva até você</span>`}
+                <span class="tags">${a.exemplo ? `<span class="etiqueta exemplo">Exemplo</span>` : ""}${etiquetasCaracteristicas({ estado: a.estado, embalagem: a.embalagem, volumes: a.volumes })}${a.pode_buscar ? `<span class="etiqueta ok">Pode buscar</span>` : `<span class="etiqueta">Leva até você</span>`}
                   ${a.tem_item_risco ? `<span class="etiqueta dinheiro">Com declaração de origem</span>` : ""}
                   ${a.minha_oferta ? `<span class="etiqueta">Sua oferta: ${reais(a.minha_oferta)}</span>` : ""}</span></span>
             </button>`).join("")}</div>`
@@ -1173,9 +1275,12 @@
       fundo.className = "modal-fundo";
       fundo.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-labelledby="an-t">
         <div class="cab"><h2 id="an-t" style="margin:0">${esc(tituloItens(a.itens))}</h2><button type="button" class="btn-icone fechar" aria-label="Fechar">✕</button></div>
-        ${urls.length ? `<div class="anexos">${urls.map((u) => `<img src="${esc(u)}" alt="Foto do material" class="foto-grande">`).join("")}</div>` : ""}
+        ${urls.length ? `<div class="anexos">${urls.map((u) => `<img src="${esc(u)}" alt="Foto do material" class="foto-grande">`).join("")}</div>`
+          : fotoMaterial(materialPrincipal(a.itens)) ? `<div class="foto-detalhe">${capaIlustrativa(materialPrincipal(a.itens))}</div><p class="suave" style="font-size:.85rem;margin-top:-6px">Quem vende ainda não pôs foto. A foto acima é só para ilustrar o material. <a href="#/creditos">Créditos</a></p>` : ""}
         <p class="suave">${esc([a.bairro, a.cidade].filter(Boolean).join(", "))} · ≈ ${km(a.distancia_km)} km · ${ha(a.criado_em)} · ${a.pode_buscar ? "pode buscar no local" : "quem vende leva até você"}</p>
         <p>Total: <b class="num">${String(totalKg(a.itens)).replace(".", ",")} kg</b>, conferidos na balança na hora.</p>
+        ${etiquetasCaracteristicas(a) ? `<div class="tags" style="margin-bottom:10px">${etiquetasCaracteristicas(a)}</div>` : ""}
+        ${a.observacao ? `<p class="obs-anuncio">“${esc(a.observacao)}”</p>` : ""}
         <div class="estimativa">${textoEstimativa(a.itens)}</div>
         ${a.tem_item_risco ? `<div class="cartao alerta"><p>Quem vende marcou material de risco (fio, cabo ou peça de ferro) e declarou a origem. Confira antes de comprar.</p></div>` : ""}
         ${a.exemplo ? `<div class="cartao alerta"><h3>Anúncio de exemplo</h3><p>Ele mostra como fica um anúncio no Sucata Livre e não recebe oferta. Os anúncios de verdade aparecem sem esta marca.</p></div>

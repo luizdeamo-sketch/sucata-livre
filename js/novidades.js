@@ -1,6 +1,16 @@
 // Sucata Livre · o que mudou em cada versão (aparece depois que a pessoa clica em Atualizar).
 window.NOVIDADES = [
   {
+    versao: "2026-11-02-10",
+    data: "02/11/2026",
+    itens: [
+      "Cara de aplicativo no celular: barra embaixo com Comprar, Vender, Anunciar, Meus e Mais.",
+      "Anúncio com até 5 fotos: botão Tirar foto (abre a câmera) ou Da galeria. A foto é reduzida no celular para gastar pouco pacote de dados.",
+      "Mais características: limpo ou misturado, solto ou em sacos, quantos sacos, quando pode retirar e uma observação.",
+      "Anúncio sem foto mostra uma foto ilustrativa do material, com a marca Foto ilustrativa.",
+    ],
+  },
+  {
     versao: "2026-11-02-9",
     data: "02/11/2026",
     itens: [

@@ -89,6 +89,49 @@ h1 { font-family: var(--f-titulo); font-size: 2.25rem; line-height: 1.06; font-w
 .lado-op.compra[aria-current] { background: var(--compra); border-color: var(--compra); color: #fff; }
 .lado-op[aria-current] small { color: #fff; }
 .btn-topo { min-height: 40px; padding: 6px 16px; }
+/* barra de app no celular (some no computador) */
+.barra-app { display: none; }
+@media (max-width: 760px) {
+  .barra-app { position: fixed; z-index: 35; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
+    background: var(--cartao); border-top: 1px solid var(--linha); box-shadow: 0 -4px 16px rgba(20, 23, 28, .08);
+    padding: 6px max(6px, env(safe-area-inset-right, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px)); }
+  .barra-app a, .barra-app button { display: grid; justify-items: center; gap: 2px; padding: 6px 2px; min-height: 56px; border: 0; background: none;
+    color: var(--suave); font: 600 .78rem/1.1 var(--f-texto); text-decoration: none; cursor: pointer; border-radius: 12px; }
+  .barra-app svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .barra-app a.ativo { color: var(--texto); background: var(--marca-claro); }
+  .barra-app .barra-anunciar { color: var(--sobre-marca); }
+  .barra-app .barra-anunciar svg { width: 44px; height: 44px; padding: 9px; margin-top: -18px; border-radius: 50%; background: var(--marca); stroke-width: 2.6;
+    box-shadow: 0 4px 12px rgba(20, 23, 28, .25); box-sizing: border-box; }
+  .barra-app .barra-anunciar.ativo { background: none; }
+  body { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+  .balao-btn { bottom: calc(86px + env(safe-area-inset-bottom, 0px)) !important; width: 54px; height: 54px; font-size: 1.5rem; }
+  .avisos { bottom: calc(150px + env(safe-area-inset-bottom, 0px)); }
+  .btn { min-height: 54px; }
+}
+/* fotos e características do anúncio */
+.fotos-botoes { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+.btn-foto { flex: 1 1 160px; font-size: 1.05rem; }
+.fotos-grade { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); margin-top: 8px; }
+.fotos-grade figure { position: relative; margin: 0; aspect-ratio: 1; border-radius: 12px; overflow: hidden; background: var(--funda); }
+.fotos-grade img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.fotos-grade figcaption { position: absolute; left: 6px; bottom: 6px; background: var(--marca); color: var(--sobre-marca); font: 700 .72rem/1 var(--f-texto); padding: 4px 7px; border-radius: 999px; }
+.tirar-foto { position: absolute; top: 6px; right: 6px; width: 32px; height: 32px; border-radius: 50%; border: 0; background: rgba(20, 23, 28, .75); color: #fff; font-size: .9rem; cursor: pointer; }
+.rot-car { margin: 12px 0 6px; font-weight: 700; font-size: .92rem; }
+.obs-anuncio { background: var(--funda); border-radius: 12px; padding: 10px 14px; font-style: italic; }
+.n-fotos { position: absolute; right: 10px; bottom: 10px; background: rgba(23,32,27,.8); color: #fff; font: 600 .8rem/1 var(--f-num); padding: 6px 9px; border-radius: 999px; }
+/* foto ilustrativa do material (quando o anúncio não tem foto própria) */
+.anuncio .foto { overflow: hidden; }
+.anuncio .foto > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.ilustrativa { position: absolute; left: 10px; top: 10px; background: rgba(255, 255, 255, .92); color: var(--texto); font: 700 .72rem/1 var(--f-texto);
+  padding: 5px 8px; border-radius: 999px; letter-spacing: .02em; }
+.selos-sobre { position: absolute; right: 10px; top: 10px; }
+.selos-sobre .cods { gap: 4px; }
+.selos-sobre .cod { font-size: .75rem !important; box-shadow: 0 1px 4px rgba(0,0,0,.2); }
+.faixa-foto { position: relative; margin: -18px -18px 4px; height: 110px; overflow: hidden; border-radius: var(--raio) var(--raio) 0 0; background: var(--funda); }
+.faixa-foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cartao.comprador { overflow: hidden; }
+.foto-detalhe { position: relative; height: 200px; border-radius: 12px; overflow: hidden; margin-bottom: 12px; background: var(--funda); }
+.foto-detalhe img { width: 100%; height: 100%; object-fit: cover; display: block; }
 /* categorias grandes com contagem */
 .categorias { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
 .categoria { display: flex; align-items: center; gap: 10px; padding: 10px 12px; min-height: 60px; border: 1px solid var(--linha-forte); border-radius: 14px;
