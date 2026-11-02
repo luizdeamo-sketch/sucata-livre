@@ -515,3 +515,84 @@ body { background: var(--fundo); }
 .menu #btn-sair .mi svg { stroke: var(--vermelho); }
 .menu-rodape { margin-top: auto; padding: 16px 18px; font-size: .8rem; color: var(--suave); }
 .btn .ic { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+
+/* ── topo com busca (02/11, no molde OLX / Mercado Livre / Shopee) ── */
+.topo { flex-wrap: wrap; row-gap: 8px; }
+.busca-topo { flex: 1 1 360px; display: flex; align-items: center; gap: 8px; min-width: 0; max-width: 760px; margin: 0 auto;
+  background: #fff; border-radius: 12px; padding: 0 6px 0 12px; height: 46px; }
+.busca-topo .lupa { width: 20px; height: 20px; flex: none; fill: none; stroke: var(--suave); stroke-width: 2.2; stroke-linecap: round; }
+.busca-topo input { flex: 1; min-width: 0; border: 0; padding: 0; height: 100%; font: 400 1rem var(--f-texto); background: transparent; color: var(--texto); outline: none; }
+.busca-topo input:focus { outline: none; }
+.busca-topo:focus-within { box-shadow: 0 0 0 3px var(--marca); }
+.local-topo { display: flex; align-items: center; gap: 4px; flex: none; max-width: 42%; border: 0; border-left: 1px solid var(--linha); background: none; padding: 6px 4px 6px 10px;
+  font: 700 .9rem var(--f-texto); color: var(--texto); cursor: pointer; white-space: nowrap; }
+.local-topo span { overflow: hidden; text-overflow: ellipsis; }
+.local-topo svg { width: 18px; height: 18px; flex: none; fill: none; stroke: var(--compra); stroke-width: 2.2; }
+.btn-anunciar-topo { min-height: 46px; padding: 8px 18px; flex: none; }
+.topo-nome { margin-left: 0; }
+@media (max-width: 760px) {
+  .topo { padding-bottom: 10px; }
+  .marca { margin-right: auto; }
+  .busca-topo { order: 5; flex: 1 1 100%; height: 44px; }
+  .btn-anunciar-topo { display: none; }
+}
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.busca-ativa { margin: 0 0 10px; font-size: .95rem; }
+
+/* ── início: banners, categorias redondas e prateleiras ── */
+.banners { position: relative; margin-bottom: 18px; }
+.banners-trilho { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; border-radius: 18px; }
+.banners-trilho::-webkit-scrollbar { display: none; }
+.banner { flex: 0 0 100%; scroll-snap-align: start; position: relative; overflow: hidden; min-height: 220px; display: flex; align-items: stretch;
+  background: var(--grafite); color: #e6e8ea; }
+.banner-txt { position: relative; z-index: 1; padding: 22px 22px 24px; display: grid; gap: 8px; align-content: center; max-width: 620px; }
+.banner-marca { margin: 0; font: 800 .72rem/1 var(--f-texto); letter-spacing: .14em; text-transform: uppercase; color: var(--marca); }
+.banner h2 { margin: 0; font: 900 clamp(1.9rem, 4.6vw, 3.1rem)/1 var(--f-titulo); text-transform: uppercase; color: #fff; }
+.banner p { margin: 0; color: #c9ccd1; max-width: 34em; }
+.banner .btn { justify-self: start; margin-top: 6px; }
+.banner-foto { position: absolute; right: 0; top: 0; height: 100%; width: 48%; object-fit: cover; opacity: .9;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 40%); mask-image: linear-gradient(90deg, transparent, #000 40%); }
+.banners-pontos { display: flex; justify-content: center; gap: 6px; margin-top: 8px; }
+.banners-pontos button { width: 28px; height: 6px; border-radius: 999px; border: 0; background: #c6c8c1; cursor: pointer; padding: 0; }
+.banners-pontos button[aria-pressed=true] { background: var(--grafite); width: 40px; }
+@media (max-width: 760px) {
+  .banner { min-height: 250px; }
+  .banner-foto { width: 100%; opacity: .28; -webkit-mask-image: none; mask-image: none; }
+}
+.secao { margin-bottom: 22px; }
+.secao-cab { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.secao-cab h2 { margin: 0; font: 800 clamp(1.4rem, 3vw, 1.8rem)/1.1 var(--f-titulo); }
+.secao-cab a { font-weight: 700; color: var(--compra); text-decoration: none; white-space: nowrap; }
+.secao-sub { margin: 4px 0 10px; font-size: .92rem; color: var(--suave); }
+.cats { display: flex; gap: 10px; overflow-x: auto; scrollbar-width: none; padding: 4px 2px; justify-content: space-between; }
+.cats::-webkit-scrollbar { display: none; }
+.cat { flex: none; width: 92px; display: grid; justify-items: center; gap: 6px; background: none; border: 0; cursor: pointer; font: 700 .85rem/1.15 var(--f-texto); color: var(--texto); text-align: center; padding: 0; }
+.cat-foto { width: 76px; height: 76px; border-radius: 50%; overflow: hidden; display: grid; place-items: center; background: #fff; border: 3px solid #fff; box-shadow: 0 1px 4px rgba(20,23,28,.18); }
+.cat-foto img { width: 100%; height: 100%; object-fit: cover; }
+.cat-foto .cod { font-size: 1.1rem; }
+.cat:hover .cat-foto, .cat:focus-visible .cat-foto { border-color: var(--marca); }
+.prateleira { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: thin; padding: 2px 2px 10px; }
+.mini { flex: 0 0 230px; scroll-snap-align: start; display: grid; background: #fff; border: 1px solid #dcded7; border-radius: 14px; overflow: hidden;
+  color: var(--texto); text-decoration: none; box-shadow: 0 1px 2px rgba(20,23,28,.06); }
+.mini:hover { border-color: var(--grafite); }
+.mini-foto { position: relative; height: 140px; background: var(--funda); display: grid; place-items: center; }
+.mini-foto img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.mini-foto .etiqueta { position: absolute; left: 8px; top: 8px; }
+.mini-foto .dist { position: absolute; left: 8px; bottom: 8px; background: rgba(23,32,27,.8); color: #fff; font: 600 .8rem/1 var(--f-num); padding: 5px 8px; border-radius: 999px; }
+.mini-txt { display: grid; gap: 2px; padding: 10px 12px 12px; }
+.mini-txt b { font-size: .98rem; line-height: 1.25; }
+.mini-txt small { color: var(--suave); font-size: .82rem; }
+.mini-valor { font: 800 1.35rem/1.1 var(--f-titulo); color: var(--oxido); margin-top: 4px; font-variant-numeric: tabular-nums; }
+.redondos .redondo { flex: 0 0 132px; display: grid; justify-items: center; gap: 4px; text-align: center; padding: 12px 8px; background: #fff; border: 1px solid #dcded7;
+  border-radius: 14px; color: var(--texto); text-decoration: none; }
+.redondo .avatar { width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; background: var(--grafite); color: var(--marca); font: 900 1.4rem/1 var(--f-titulo); border: 3px solid var(--marca); }
+.redondo b { font-size: .85rem; line-height: 1.2; }
+.redondo small { font-size: .76rem; color: var(--suave); }
+.precos .preco-card { flex: none; display: flex; gap: 10px; align-items: center; padding: 10px 14px 10px 10px; background: #fff; border: 1px solid #dcded7; border-radius: 12px; color: var(--texto); text-decoration: none; }
+.preco-card b { display: block; font-size: .85rem; }
+.preco-card .num { font-weight: 800; }
+.como-passos { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.como-passos li { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; align-items: center; background: #fff; border: 1px solid #dcded7; border-radius: 14px; padding: 12px; }
+.como-passos .num-placa { grid-row: span 2; margin: 0; width: 44px; height: 44px; font-size: 1.6rem; }
+.como-passos small { color: var(--suave); }
+.como h2 { margin: 0; font: 800 clamp(1.4rem, 3vw, 1.8rem)/1.1 var(--f-titulo); }

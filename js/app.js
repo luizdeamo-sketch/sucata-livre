@@ -261,12 +261,14 @@
         const r = await consultarCep(d);
         if (!r.na_regiao) throw new Error(`${r.geo.cidade} ainda fica fora da região de lançamento (Salto e 50 km em volta).`);
         estado.local = { ...r.geo }; guardarLocal();
+        $$(".modal-fundo").forEach((m) => m.remove());
         rota();
       });
     });
     $("#trocar-local", el)?.addEventListener("click", (e) => { $("#busca-campos", el).hidden = false; e.currentTarget.hidden = true; i.focus(); });
     $("#usar-local", el)?.addEventListener("click", (e) => ocupado(e.currentTarget, async () => {
       await localDoAparelho();
+      $$(".modal-fundo").forEach((m) => m.remove());
       rota();
     }));
   }
@@ -325,11 +327,61 @@
   }
   // famílias de material de um item da lista (anúncio: itens; comprador/anúncio de compra: materiais)
   const familiasDe = (x) => { const M = MAT(); return new Set((x.itens ? x.itens.map((i) => i.material_id) : x.materiais ?? []).map((id) => M[id]?.familia_id).filter(Boolean)); };
+  const materiaisDe = (x) => new Set(x.itens ? x.itens.map((i) => i.material_id) : x.materiais ?? []);
   function contarEFiltrar(todos) {
+    // a busca do topo (ex.: "cobre") vem antes: as categorias contam só o que sobrou dela
+    if (estado.busca?.ids?.length) todos = todos.filter((x) => [...materiaisDe(x)].some((id) => estado.busca.ids.includes(id)));
     const cont = { total: todos.length };
     for (const x of todos) for (const f of familiasDe(x)) cont[f] = (cont[f] ?? 0) + 1;
     const lista = estado.familiaFiltro == null ? todos : todos.filter((x) => familiasDe(x).has(estado.familiaFiltro));
     return { cont, lista };
+  }
+  // linha "Resultado para cobre ✕" no alto da lista
+  const buscaAtivaHTML = () => estado.busca?.ids?.length
+    ? `<p class="busca-ativa">Resultado para <b>“${esc(estado.busca.texto)}”</b> <button type="button" class="btn-link" id="limpar-busca">Limpar busca</button></p>` : "";
+
+  // ── busca do topo: entende o jeito de falar do ferro-velho ("lata", "fio", "garrafa") ─────────
+  const semAcento = (t) => String(t ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+  const APELIDOS = {
+    101: ["latinha", "lata", "latas", "lata de refrigerante", "lata de cerveja"], 102: ["perfil", "chaparia", "janela", "esquadria", "aluminio"], 103: ["panela", "bloco", "aluminio"],
+    104: ["cobre", "fio", "fios", "cabo", "cabos"], 105: ["bronze", "latao", "metal amarelo", "torneira", "registro"], 106: ["inox", "aco inox"],
+    201: ["ferro", "ferragem", "sucata", "aco", "lataria"], 202: ["fundido", "ferro fundido"], 301: ["papelao", "caixa", "caixas"], 302: ["papel branco", "papel", "arquivo", "sulfite"],
+    303: ["jornal", "revista", "papel misto", "papel"], 401: ["pet", "garrafa", "garrafas", "garrafa pet"], 402: ["pead", "frasco", "galao", "bombona", "plastico duro"],
+    403: ["sacola", "sacolinha", "filme", "plastico mole", "plastico"],
+  };
+  function materiaisDaBusca(texto) {
+    const t = semAcento(texto); if (!t) return [];
+    const achados = new Set();
+    for (const m of estado.materiais) {
+      const nomes = [m.nome, m.selo, m.selo_sub, estado.familias.find((f) => f.id === m.familia_id)?.nome, ...(APELIDOS[m.id] ?? [])].map(semAcento).filter(Boolean);
+      if (nomes.some((n) => n.includes(t) || (t.length >= 4 && t.includes(n)))) achados.add(m.id);
+    }
+    return [...achados];
+  }
+  function buscar(texto, ids) {
+    ids ??= materiaisDaBusca(texto);
+    if (!ids.length) { avisar(`Não achamos “${texto}”. Tente latinha, cobre, ferro, papelão ou PET.`, "info"); return; }
+    estado.busca = { texto, ids }; estado.familiaFiltro = null;
+    const tela = location.hash.replace(/^#\/?/, "").split("?")[0];
+    ir(tela === "quem-compra" ? "quem-compra" : "anuncios");
+  }
+
+  // o 📍 do topo: mostra a cidade e abre a troca de local (aparelho ou CEP) por cima da tela
+  function atualizarLocalTopo() { const n = $("#local-topo-nome"); if (n) n.textContent = estado.local?.padrao ? "Salto e região" : (estado.local?.bairro || estado.local?.cidade || "Salto"); }
+  function abrirTrocaLocal() {
+    const fundo = document.createElement("div");
+    fundo.className = "modal-fundo";
+    fundo.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-label="Onde você está">
+      <div class="cab"><h2 style="margin:0">Onde você está?</h2><button type="button" class="btn-icone fechar" aria-label="Fechar">✕</button></div>
+      <p class="suave">Mostramos primeiro o que está mais perto de você.</p><div id="troca-local"></div></div>`;
+    document.body.appendChild(fundo);
+    const caixa = $("#troca-local", fundo);
+    caixa.innerHTML = caixaCep("Onde você está?");
+    $("#busca-campos", caixa).hidden = false; $("#trocar-local", caixa)?.remove();
+    ligarCaixaCep(caixa);
+    fundo.addEventListener("click", (e) => { if (e.target === fundo || e.target.closest(".fechar")) fundo.remove(); });
+    addEventListener("hashchange", () => fundo.remove(), { once: true });
+    $("#cep-busca", caixa).focus();
   }
   // no celular, a lista e o mapa revezam a tela (no computador ficam lado a lado e o seletor some)
   const vistaHTML = () => `<div class="vista" role="group" aria-label="Ver como">
@@ -337,6 +389,7 @@
       <button type="button" class="chip" data-vista="mapa" aria-pressed="${estado.vista === "mapa"}">🗺 Mapa</button></div>`;
   function ligarFiltros(el) {
     el.addEventListener("click", (e) => {
+      if (e.target.closest("#limpar-busca")) { estado.busca = null; $("#busca-texto").value = ""; rota(); return; }
       const v = e.target.closest("[data-vista]");
       if (v) {
         estado.vista = v.dataset.vista;
@@ -449,7 +502,7 @@
   function montarMenu() {
     const logado = !!estado.sessao;
     // três grupos: a vitrine (aberta a todos), a conta (cada papel) e o Sucata Livre; ícones de traço, como na barra
-    const vitrine = [["anuncios", "Material à venda", "comprar"], ["quem-compra", "Quem compra", "vender"], ["quanto-vale", "Quanto vale a minha sucata", "preco"]];
+    const vitrine = [["inicio", "Início", "inicio"], ["anuncios", "Material à venda", "comprar"], ["quem-compra", "Quem compra", "vender"], ["quanto-vale", "Quanto vale a minha sucata", "preco"]];
     if (estado.vendedor || !estado.comprador) vitrine.push(["anunciar", estado.vendedor ? "Anunciar" : "Anunciar minha sucata", "anunciar"]);
     const conta = [];
     if (estado.vendedor) conta.push(["meus-anuncios", "Meus anúncios", "meus"], ["cad-vendedor", "Meu cadastro", "pessoa"]);
@@ -480,6 +533,7 @@
     meus: '<path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/>',
     preco: '<path d="M12 3v18M17 7.5c0-1.9-2.2-3-5-3s-5 1.1-5 3 2 2.7 5 3.5 5 1.6 5 3.5-2.2 3-5 3-5-1.1-5-3"/>',
     mais: '<path d="M4 7h16M4 12h16M4 17h16"/>',
+    inicio: '<path d="M3 11l9-7 9 7M5 9.5V20h5v-6h4v6h5V9.5"/>',
     pessoa: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/>',
     empresa: '<path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-5h6v5M9 10h.01M15 10h.01"/>',
     oferta: '<path d="M4 5h16v11H8l-4 4z"/><path d="M9 10.5h6"/>',
@@ -494,8 +548,7 @@
   };
   function montarBarra() {
     if (!$("#barra-app")) return;
-    const meus = estado.vendedor ? ["meus-anuncios", "Meus", "meus"] : estado.comprador ? ["minhas-ofertas", "Ofertas", "meus"] : ["quanto-vale", "Preço", "preco"];
-    const itens = [["anuncios", "Comprar", "comprar"], ["quem-compra", "Vender", "vender"], ["anunciar", "Anunciar", "anunciar"], meus];
+    const itens = [["inicio", "Início", "inicio"], ["anuncios", "Comprar", "comprar"], ["anunciar", "Anunciar", "anunciar"], ["quem-compra", "Vender", "vender"]];
     $("#barra-app").innerHTML = itens.map(([t, r, i]) => `<a href="#/${t}" data-tela="${t}" class="${t === "anunciar" ? "barra-anunciar" : ""}">
         <svg viewBox="0 0 24 24" aria-hidden="true">${ICONE[i]}</svg><span>${r}</span></a>`).join("")
       + `<button type="button" id="barra-mais"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONE.mais}</svg><span>Mais</span></button>`;
@@ -504,16 +557,15 @@
 
   function abrirMenu(abrir) { $("#menu").hidden = !abrir; $("#menu-fundo").hidden = !abrir; }
   $("#btn-menu").addEventListener("click", () => abrirMenu($("#menu").hidden));
+  $("#busca-topo")?.addEventListener("submit", (e) => { e.preventDefault(); const t = $("#busca-texto").value.trim(); if (t) buscar(t); else ir("anuncios"); });
+  $("#local-topo")?.addEventListener("click", abrirTrocaLocal);
   $("#menu-fundo").addEventListener("click", () => abrirMenu(false));
   $("#menu").addEventListener("click", (e) => e.target.closest("a") && abrirMenu(false));
 
-  function telaInicial() {
-    if (estado.vendedor && !estado.comprador) return "quem-compra";
-    return "anuncios";
-  }
+  function telaInicial() { return "inicio"; } // como nos classificados grandes: todo mundo começa pela vitrine
 
   // vitrine aberta: ver é livre; fazer negócio (WhatsApp, oferta, anúncio) pede cadastro
-  const PUBLICAS = new Set(["anuncios", "quem-compra", "quanto-vale", "anunciar", "comprador", "instalar", "creditos", "apresentacao", "entrar"]);
+  const PUBLICAS = new Set(["inicio", "anuncios", "quem-compra", "quanto-vale", "anunciar", "comprador", "instalar", "creditos", "apresentacao", "entrar"]);
   const VOLTA = "slv-voltar";
   const guardarVolta = (tela) => { try { sessionStorage.setItem(VOLTA, tela); } catch {} };
   const lerVolta = () => { try { return sessionStorage.getItem(VOLTA); } catch { return null; } };
@@ -531,8 +583,7 @@
     limparVolta(); return true;
   }
   // seletor do lado (vender ou comprar) no alto da vitrine, e a frase da marca para quem ainda não entrou
-  const lado = (atual) => `${estado.sessao ? "" : `<section class="vitrine-topo"><p class="chamada-vitrine">Quem junta, vende.</p>
-      <p class="vitrine-texto">Sucata e reciclável de Salto e região, sem preço. Ver é livre. <a href="#/quanto-vale">💰 Quanto vale a sua sucata?</a></p></section>`}
+  const lado = (atual) => `
     <nav class="lado" aria-label="O que você quer fazer">
       <a href="#/quem-compra" class="lado-op vende" ${atual === "quem-compra" ? 'aria-current="page"' : ""}>Quero vender</a>
       <a href="#/anuncios" class="lado-op compra" ${atual === "anuncios" ? 'aria-current="page"' : ""}>Quero comprar</a>
@@ -547,6 +598,7 @@
     const el = document.createElement("div");
     $("#tela").replaceChildren(el);
     $$("#menu a, #barra-app a").forEach((a) => a.classList.toggle("ativo", a.dataset.tela === nome));
+    atualizarLocalTopo();
     el.innerHTML = `<p class="suave">Carregando…</p>`;
     window.Acomp.tela(nome);
     try {
@@ -622,6 +674,87 @@
       if (outcome !== "accepted") avisar("Tudo bem. Dá para instalar depois, por este mesmo menu.", "info");
       rota();
     });
+  };
+
+  // ── início: a vitrine no molde dos grandes classificados (OLX, Mercado Livre, Shopee, Viva Real, Webmotors) ──
+  // categorias redondas com foto, banner que passa sozinho e prateleiras que rolam para o lado
+  const CATEGORIAS = [
+    ["Latinha", [101], 101], ["Alumínio", [102, 103], 102], ["Cobre", [104], 104], ["Bronze e latão", [105], 105], ["Ferro", [201, 202], 201],
+    ["Papelão", [301], 301], ["Papel", [302, 303], 302], ["PET", [401], 401], ["Plástico", [402, 403], 403],
+  ];
+  const BANNERS = [
+    { titulo: "Quanto vale a sua sucata?", texto: "Escolha o material, diga o peso e veja o preço da região na hora.", botao: "Calcular agora", link: "#/quanto-vale", foto: 104 },
+    { titulo: "Anuncie grátis. Receba ofertas.", texto: "Sem pôr preço: os compradores perto mandam oferta e você escolhe a melhor.", botao: "Anunciar minha sucata", link: "#/anunciar", foto: 101 },
+    { titulo: "Tem ferro-velho ou depósito?", texto: "Veja o material à venda perto e anuncie o que você compra.", botao: "Ver material à venda", link: "#/anuncios", foto: 201 },
+  ];
+  let rodaBanner = null;
+  TELAS.inicio = async (el) => {
+    await carregarCatalogo();
+    const l = estado.local;
+    const [an, pr] = await Promise.all([
+      sb.rpc("slv_anuncios_perto", { p_lat: l.lat, p_lng: l.lng, p_raio_km: 25, p_familia: null }),
+      sb.rpc("slv_procuras_perto", { p_lat: l.lat, p_lng: l.lng, p_raio_km: 25, p_familia: null }),
+    ]);
+    const anuncios = an.data ?? [], compradores = pr.data ?? [];
+    const onde = l.padrao ? "Salto e região" : (l.bairro || l.cidade);
+    const fotoCat = (id) => fotoMaterial(id) ? `<img src="${esc(fotoMaterial(id))}" alt="" loading="lazy">` : selo(id);
+    const miniAnuncio = (a) => {
+      const mp = materialPrincipal(a.itens), f = faixaItens(a.itens);
+      return `<a class="mini" href="#/anuncios?a=${a.id}"><span class="mini-foto">${fotoMaterial(mp) ? `<img src="${esc(fotoMaterial(mp))}" alt="" loading="lazy">` : selosItens(a.itens)}
+          ${a.exemplo ? `<span class="etiqueta exemplo">Exemplo</span>` : ""}<span class="dist">≈ ${km(a.distancia_km)} km</span></span>
+        <span class="mini-txt"><b>${esc(tituloItens(a.itens))}</b><small>${esc([a.bairro, a.cidade].filter(Boolean).join(", "))}</small>
+          ${f ? `<span class="mini-valor">${reais0(f[0])} a ${reais0(f[1])}</span><small>na região</small>` : ""}</span></a>`;
+    };
+    const redondo = (c) => `<a class="redondo" href="#/comprador?id=${esc(c.comprador_id)}"><span class="avatar">${esc(c.nome.replace(/^Exemplo · /, "").split(" ").filter((p) => p.length > 2).slice(0, 2).map((p) => p[0]).join("").toUpperCase())}</span>
+        <b>${esc(c.nome)}</b><small>≈ ${km(c.distancia_km)} km · ${esc(c.cidade ?? "")}</small></a>`;
+    const ref = Object.values(estado.ref ?? {});
+    el.innerHTML = `
+      <section class="banners" aria-label="Destaques">
+        <div class="banners-trilho" id="banners">${BANNERS.map((b, i) => `<article class="banner" aria-roledescription="destaque" aria-label="${i + 1} de ${BANNERS.length}">
+          <div class="banner-txt"><p class="banner-marca">Quem junta, vende.</p><h2>${b.titulo}</h2><p>${b.texto}</p><a class="btn btn-primario" href="${b.link}">${b.botao}</a></div>
+          ${fotoMaterial(b.foto) ? `<img class="banner-foto" src="${esc(fotoMaterial(b.foto))}" alt="">` : ""}</article>`).join("")}</div>
+        <div class="banners-pontos">${BANNERS.map((_, i) => `<button type="button" data-banner="${i}" aria-label="Destaque ${i + 1}" aria-pressed="${i === 0}"></button>`).join("")}</div>
+      </section>
+      <section class="secao" aria-labelledby="cat-t"><h2 id="cat-t" class="sr-only">Categorias</h2>
+        <div class="cats">${CATEGORIAS.map(([n, ids, foto], i) => `<button type="button" class="cat" data-cat="${i}"><span class="cat-foto">${fotoCat(foto)}</span><span>${esc(n)}</span></button>`).join("")}</div>
+      </section>
+      <section class="secao">
+        <div class="secao-cab"><h2>Material à venda perto de você</h2><a href="#/anuncios">Ver tudo ›</a></div>
+        <p class="secao-sub">📍 ${esc(onde)} · ${anuncios.length} anúncio${anuncios.length === 1 ? "" : "s"} até 25 km${anuncios.some((a) => a.exemplo) ? " · por enquanto, exemplos" : ""}</p>
+        ${anuncios.length ? `<div class="prateleira">${anuncios.slice(0, 12).map(miniAnuncio).join("")}</div>` : `<div class="cartao vazio">Nenhum anúncio perto ainda. <a href="#/anunciar">Seja o primeiro a anunciar</a>.</div>`}
+      </section>
+      <section class="secao">
+        <div class="secao-cab"><h2>Quem compra perto</h2><a href="#/quem-compra">Ver tudo ›</a></div>
+        ${compradores.length ? `<div class="prateleira redondos">${compradores.slice(0, 12).map(redondo).join("")}</div>` : `<div class="cartao vazio">Ainda sem comprador anunciando perto.</div>`}
+      </section>
+      <section class="secao">
+        <div class="secao-cab"><h2>Preço da região hoje</h2><a href="#/quanto-vale">Calcular o meu ›</a></div>
+        <p class="secao-sub">R$ por kg pago no balcão. Não mostra o preço de nenhum comprador.</p>
+        <div class="prateleira precos">${ref.map((r) => `<a class="preco-card" href="#/quanto-vale">${selo(r.material_id)}<span><b>${esc(MAT()[r.material_id]?.nome ?? "")}</b>
+          <span class="num">${reais2(r.minimo)} a ${reais2(r.maximo)}</span></span></a>`).join("")}</div>
+      </section>
+      <section class="secao como">
+        <h2>Como funciona</h2>
+        <ol class="como-passos"><li><span class="num-placa">1</span><b>Anuncie sem preço</b><small>Material, peso e foto. Leva um minuto.</small></li>
+          <li><span class="num-placa">2</span><b>Receba ofertas</b><small>Quem compra perto manda a oferta só para você.</small></li>
+          <li><span class="num-placa">3</span><b>Aceite a melhor</b><small>O WhatsApp aparece e vocês combinam a retirada.</small></li></ol>
+      </section>`;
+    el.addEventListener("click", (e) => {
+      const c = e.target.closest("[data-cat]");
+      if (c) { const [n, ids] = CATEGORIAS[Number(c.dataset.cat)]; buscar(n, ids); return; }
+      const p = e.target.closest("[data-banner]");
+      if (p) irBanner(Number(p.dataset.banner));
+    });
+    // banner que passa sozinho a cada 6 s (para quando a pessoa mexe nele)
+    const trilho = $("#banners", el);
+    const pontos = $$("[data-banner]", el);
+    const atual = () => Math.round(trilho.scrollLeft / trilho.clientWidth);
+    function irBanner(i) { trilho.scrollTo({ left: i * trilho.clientWidth, behavior: "smooth" }); }
+    trilho.addEventListener("scroll", () => pontos.forEach((b, i) => b.setAttribute("aria-pressed", String(i === atual()))), { passive: true });
+    clearInterval(rodaBanner);
+    if (!matchMedia("(prefers-reduced-motion: reduce)").matches)
+      rodaBanner = setInterval(() => { if (!document.body.contains(trilho)) return clearInterval(rodaBanner); irBanner((atual() + 1) % BANNERS.length); }, 6000);
+    ["pointerdown", "touchstart"].forEach((ev) => trilho.addEventListener(ev, () => clearInterval(rodaBanner), { passive: true, once: true }));
   };
 
   // ── página pública do comprador: confiança antes do negócio ─────────────
@@ -845,7 +978,7 @@
     el.innerHTML = `
       ${lado("quem-compra")}
       ${caixaCep("Quem compra sucata perto de você?")}
-      ${filtrosHTML(cont, ["comprador", "compradores"])}
+      ${filtrosHTML(cont, ["comprador", "compradores"])}${buscaAtivaHTML()}
       <p class="chamada-fina">💰 <a href="#/quanto-vale">Quanto vale a sua sucata?</a> Veja na hora e <a href="#/anunciar">anuncie grátis</a>: os compradores perto mandam oferta.</p>
       ${vistaHTML()}
       <div class="duas" data-vista="${estado.vista}">
@@ -1253,7 +1386,7 @@
     el.innerHTML = `
       ${lado("anuncios")}
       ${caixaCep("Que sucata está à venda perto de você?")}
-      ${filtrosHTML(cont, ["anúncio", "anúncios"])}
+      ${filtrosHTML(cont, ["anúncio", "anúncios"])}${buscaAtivaHTML()}
       <p class="chamada-fina">Você compra sucata? <a href="#/anunciar-compra">Anuncie o que procura</a> e quem vende perto chama você.</p>
       ${vistaHTML()}
       <div class="duas" data-vista="${estado.vista}">

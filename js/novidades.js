@@ -1,6 +1,16 @@
 // Sucata Livre · o que mudou em cada versão (aparece depois que a pessoa clica em Atualizar).
 window.NOVIDADES = [
   {
+    versao: "2026-11-02-14",
+    data: "02/11/2026",
+    itens: [
+      "Página de entrada nova, como nos grandes classificados: busca no topo (escreva fio, latinha, papelão…) e a sua cidade ao lado.",
+      "Categorias com foto: toque em Cobre, Ferro, PET e veja só aquele material.",
+      "Prateleira com o material à venda perto de você, quem compra perto e o preço da região hoje.",
+      "Barra do celular com Início, Comprar, Anunciar, Vender e Mais.",
+    ],
+  },
+  {
     versao: "2026-11-02-13",
     data: "02/11/2026",
     itens: [
