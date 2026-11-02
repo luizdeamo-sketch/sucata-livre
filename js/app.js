@@ -305,12 +305,12 @@
 
   TELAS.apresentacao = async (el) => {
     el.innerHTML = `
-      <h1>Anuncie sua sucata e receba ofertas de quem compra perto</h1>
-      <p>No Sucata Livre você diz o que tem e quanto pesa. Os ferros-velhos e recicladoras perto de você mandam uma oferta que <b>só você vê</b>, e você escolhe a melhor.</p>
+      <h1 class="chamada-marca">Quem junta,<br>vende.</h1>
+      <p style="font-size:1.2rem;line-height:1.5;max-width:36em">Anuncie sua sucata sem pôr preço. Os ferros-velhos e recicladoras perto de você mandam uma oferta que <b>só você vê</b>, e você aceita a melhor.</p>
       <div class="passos">
-        <div class="passo"><h3>1. Anuncie</h3><p class="suave">Toque nos materiais, diga o peso aproximado e tire uma foto. Leva um minuto.</p></div>
-        <div class="passo"><h3>2. Receba ofertas</h3><p class="suave">Cada comprador manda a oferta só para você. Nenhum vê a oferta do outro.</p></div>
-        <div class="passo"><h3>3. Escolha a melhor</h3><p class="suave">Aceite uma oferta e combine pelo WhatsApp. Seu telefone só aparece para quem você aceitar.</p></div>
+        <div class="passo"><span class="num-placa" aria-hidden="true">1</span><h3>Anuncie o que juntou</h3><p class="suave">Toque nos materiais, diga o peso aproximado e tire uma foto. Leva um minuto.</p></div>
+        <div class="passo"><span class="num-placa" aria-hidden="true">2</span><h3>Receba ofertas de quem está perto</h3><p class="suave">Cada comprador manda a oferta só para você. Nenhum vê a oferta do outro, e você vê se está acima ou abaixo do preço da região.</p></div>
+        <div class="passo"><span class="num-placa" aria-hidden="true">3</span><h3>Aceite a melhor e combine</h3><p class="suave">Seu telefone só aparece para quem você aceitar. Pesem na balança e recebam o combinado.</p></div>
       </div>
       <div class="cartao"><h3>Quer vender agora mesmo?</h3>
         <p class="suave">Digite seu CEP e veja no mapa quem compra perto de você, com horário e WhatsApp.</p></div>
@@ -617,7 +617,7 @@
     const lista = data ?? [];
     el.innerHTML = `<h1>Meus anúncios</h1>
       <p class="suave">Cada comprador vê só a própria oferta. Você vê todas.</p>
-      <div class="acoes" style="margin-bottom:16px"><a class="btn btn-primario" href="#/anunciar">Anunciar outro material</a></div>
+      <div class="acoes" style="margin-bottom:16px"><a class="btn btn-secundario" href="#/anunciar">Anunciar outro material</a></div>
       ${lista.length ? `<div class="lista">${lista.map((a) => `
         <article class="cartao" data-anuncio="${a.id}">
           <div class="cab"><h3>${esc(tituloItens(a.itens))}</h3><span class="etiqueta ${SIT_ANUNCIO[a.status][1]}">${SIT_ANUNCIO[a.status][0]}</span></div>

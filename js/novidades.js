@@ -1,6 +1,15 @@
 // Sucata Livre · o que mudou em cada versão (aparece depois que a pessoa clica em Atualizar).
 window.NOVIDADES = [
   {
+    versao: "2026-11-02-2",
+    data: "02/11/2026",
+    itens: [
+      "Marca nova: o ímã que puxa as ofertas para quem juntou o material. Quem junta, vende.",
+      "Botão principal em amarelo e títulos em letra de placa, mais fáceis de ver no sol.",
+      "Quanto o seu lote vale na região aparece em destaque, em amarelo.",
+    ],
+  },
+  {
     versao: "2026-11-02-1",
     data: "02/11/2026",
     itens: [
