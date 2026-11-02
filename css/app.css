@@ -596,3 +596,15 @@ body { background: var(--fundo); }
 .como-passos .num-placa { grid-row: span 2; margin: 0; width: 44px; height: 44px; font-size: 1.6rem; }
 .como-passos small { color: var(--suave); }
 .como h2 { margin: 0; font: 800 clamp(1.4rem, 3vw, 1.8rem)/1.1 var(--f-titulo); }
+
+/* monitor: o topo da vitrine em duas faixas lado a lado, em vez de cinco linhas empilhadas à esquerda */
+@media (min-width: 1100px) {
+  .painel-topo { display: grid; grid-template-columns: minmax(340px, 460px) minmax(0, 1fr); gap: 10px 16px; align-items: center; margin-bottom: 14px; }
+  .painel-topo > .lado, .painel-topo > .busca-cep { margin: 0; max-width: none; }
+  .painel-topo > .lado { align-self: center; }
+  .painel-topo > .busca-cep { align-content: center; }
+  .painel-topo > .filtros { grid-column: 1 / -1; display: flex; align-items: center; gap: 12px 20px; margin: 0; }
+  .painel-topo > .filtros .chips { flex: none; }
+  .painel-topo > .filtros .categorias { flex: 1; min-width: 0; flex-wrap: wrap; overflow: visible; }
+  .painel-topo > .busca-ativa, .painel-topo > .chamada-fina { grid-column: 1 / -1; margin: 0; }
+}

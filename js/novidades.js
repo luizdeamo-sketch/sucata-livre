@@ -1,6 +1,13 @@
 // Sucata Livre · o que mudou em cada versão (aparece depois que a pessoa clica em Atualizar).
 window.NOVIDADES = [
   {
+    versao: "2026-11-02-16",
+    data: "02/11/2026",
+    itens: [
+      "No computador, o topo das listas ficou mais arrumado: Quero vender ou comprar ao lado da sua localização, e a distância ao lado dos materiais. Os anúncios aparecem mais cedo na tela.",
+    ],
+  },
+  {
     versao: "2026-11-02-15",
     data: "02/11/2026",
     itens: [

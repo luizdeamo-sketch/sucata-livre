@@ -978,10 +978,10 @@
     }
     const { cont, lista } = contarEFiltrar(todos);
     el.innerHTML = `
-      ${lado("quem-compra")}
+      <div class="painel-topo">${lado("quem-compra")}
       ${caixaCep("Quem compra sucata perto de você?")}
       ${filtrosHTML(cont, ["comprador", "compradores"])}${buscaAtivaHTML()}
-      <p class="chamada-fina">💰 <a href="#/quanto-vale">Quanto vale a sua sucata?</a> Veja na hora e <a href="#/anunciar">anuncie grátis</a>: os compradores perto mandam oferta.</p>
+      <p class="chamada-fina">💰 <a href="#/quanto-vale">Quanto vale a sua sucata?</a> Veja na hora e <a href="#/anunciar">anuncie grátis</a>: os compradores perto mandam oferta.</p></div>
       ${vistaHTML()}
       <div class="duas" data-vista="${estado.vista}">
         <section>
@@ -1386,10 +1386,10 @@
     const fotos = await urlsFotos(lista.map((a) => a.fotos?.[0]).filter(Boolean));
     let fi = 0; lista.forEach((a) => { if (a.fotos?.[0]) a._foto = fotos[fi++]; });
     el.innerHTML = `
-      ${lado("anuncios")}
+      <div class="painel-topo">${lado("anuncios")}
       ${caixaCep("Que sucata está à venda perto de você?")}
       ${filtrosHTML(cont, ["anúncio", "anúncios"])}${buscaAtivaHTML()}
-      <p class="chamada-fina">Você compra sucata? <a href="#/anunciar-compra">Anuncie o que procura</a> e quem vende perto chama você.</p>
+      <p class="chamada-fina">Você compra sucata? <a href="#/anunciar-compra">Anuncie o que procura</a> e quem vende perto chama você.</p></div>
       ${vistaHTML()}
       <div class="duas" data-vista="${estado.vista}">
         <section>
