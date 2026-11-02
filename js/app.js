@@ -507,7 +507,7 @@
   function precisa(papel, voltar) {
     guardarVolta(voltar);
     if (!estado.sessao) {
-      avisar(papel === "comprador" ? "Para fazer oferta, entre e cadastre a sua empresa. É grátis." : "Para fazer negócio, entre com o seu celular. É grátis.", "info");
+      if (!C.demo) avisar(papel === "comprador" ? "Para fazer oferta, entre e cadastre a sua empresa. É grátis." : "Para fazer negócio, entre com o seu celular. É grátis.", "info");
       ir("entrar"); return false;
     }
     if (papel === "vendedor" && !estado.vendedor) { ir("cad-vendedor"); return false; }
@@ -688,6 +688,19 @@
 
   TELAS.entrar = async (el) => {
     if (estado.sessao) return ir(telaInicial());
+    if (C.demo) { // versão de teste: não pede telefone de ninguém
+      const volta = lerVolta() && PUBLICAS.has(lerVolta().split("?")[0]) ? lerVolta() : "anuncios";
+      el.innerHTML = `<h1>Versão de teste</h1>
+        <div class="cartao alerta"><h3>O cadastro ainda não está aberto</h3>
+          <p>Você está vendo o Sucata Livre em teste. Os anúncios são exemplos, e por isso ninguém entra, anuncia de verdade nem faz oferta ainda.</p>
+          <p style="margin:0">Quando abrir, este é o passo em que você entra com o celular: chega um código por SMS, sem senha, e você volta direto para onde estava.</p></div>
+        <div class="cartao"><h3>O que dá para testar agora</h3>
+          <ul class="passos-lista"><li>Ver os anúncios de venda e de compra, no mapa e na lista.</li><li>Calcular quanto vale a sua sucata.</li>
+            <li>Montar um anúncio inteiro, com fotos e características (ele não é publicado).</li><li>Abrir a página de um comprador e instalar o app no celular.</li></ul>
+          <p class="suave" style="margin:10px 0 0">Achou algo estranho ou tem uma ideia? Mande para quem te passou o link.</p></div>
+        <div class="acoes"><a class="btn btn-primario" href="#/${esc(volta)}">Voltar</a><a class="btn btn-secundario" href="#/quanto-vale">Calcular quanto vale</a></div>`;
+      return;
+    }
     el.innerHTML = `
       <h1>Entrar ou criar cadastro</h1>
       <p>Ver os anúncios é livre. O cadastro é para fazer negócio: anunciar, mandar oferta e ver o WhatsApp. É grátis.</p>
@@ -930,8 +943,8 @@
             <div class="tags">${etiquetasCaracteristicas(R)}</div>
             <p class="suave">${R.fotos.length} foto${R.fotos.length === 1 ? "" : "s"}${R.risco ? " · com declaração de origem" : ""}</p>
             <div class="estimativa">${textoEstimativa(itensR())}</div></div>
-          ${estado.vendedor ? "" : `<p class="suave">Para publicar, pedimos o seu celular (chega um código por SMS) e um cadastro rápido. Nada do que você preencheu se perde.</p>`}
-          <div class="acoes"><button type="button" class="btn btn-secundario" data-ir="2">Voltar</button><button type="button" class="btn btn-primario" id="publicar">${estado.vendedor ? "Publicar anúncio" : "Publicar: entrar com o celular"}</button></div>`;
+          ${estado.vendedor ? "" : C.demo ? `<p class="suave">Versão de teste: o anúncio não é publicado. Quando o cadastro abrir, aqui pedimos o seu celular e nada do que você preencheu se perde.</p>` : `<p class="suave">Para publicar, pedimos o seu celular (chega um código por SMS) e um cadastro rápido. Nada do que você preencheu se perde.</p>`}
+          <div class="acoes"><button type="button" class="btn btn-secundario" data-ir="2">Voltar</button><button type="button" class="btn btn-primario" id="publicar">${estado.vendedor ? "Publicar anúncio" : C.demo ? "Publicar (versão de teste)" : "Publicar: entrar com o celular"}</button></div>`;
         const c = $("#cep-an", el);
         c.addEventListener("input", async () => {
           c.value = fmtCEP(c.value); const d = digitos(c.value); R.cep = d; R.geo = null;

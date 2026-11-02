@@ -1,6 +1,13 @@
 // Sucata Livre · o que mudou em cada versão (aparece depois que a pessoa clica em Atualizar).
 window.NOVIDADES = [
   {
+    versao: "2026-11-02-11",
+    data: "02/11/2026",
+    itens: [
+      "Versão de teste: os anúncios são exemplos e o cadastro ainda não está aberto. A tela de entrar explica isso e mostra o que dá para testar.",
+    ],
+  },
+  {
     versao: "2026-11-02-10",
     data: "02/11/2026",
     itens: [
