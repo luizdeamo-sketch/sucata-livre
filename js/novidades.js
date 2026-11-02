@@ -1,6 +1,11 @@
 // Sucata Livre · o que mudou em cada versão (aparece depois que a pessoa clica em Atualizar).
 window.NOVIDADES = [
   {
+    versao: "2026-11-02-24",
+    data: "02/11/2026",
+    itens: ["O Sucata Livre agora mostra que é um produto Capacity Case, no rodapé da página de entrada."],
+  },
+  {
     versao: "2026-11-02-23",
     data: "02/11/2026",
     itens: [

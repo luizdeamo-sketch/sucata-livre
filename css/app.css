@@ -704,3 +704,4 @@ body { background: var(--fundo); }
 .motivos { border: 0; padding: 0; margin: 8px 0 12px; display: grid; gap: 8px; }
 .motivos legend { font-weight: 800; margin-bottom: 6px; }
 #den-texto { width: 100%; font: 16px var(--f-texto); padding: 10px; border: 1.5px solid var(--linha-forte); border-radius: 10px; }
+.assinatura { text-align: center; font-size: .82rem; color: var(--suave); margin: 28px 0 8px; } .assinatura a { color: inherit; }

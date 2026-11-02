@@ -530,7 +530,7 @@
     $("#menu").innerHTML = `<div class="menu-cab"><b>${esc(estado.eu?.nome ?? "Minha conta")}</b><button type="button" class="menu-fechar" aria-label="Fechar">✕</button></div>`
       + grupo(estado.comprador && !estado.vendedor ? "Minha empresa" : "Minha conta", conta)
       + (logado ? `<button type="button" id="btn-sair"><span class="mi"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONE.sair}</svg></span>Sair</button>` : "")
-      + `<p class="menu-rodape">Quem junta, vende.${C.demo ? " · Versão de teste" : ""}</p>`;
+      + `<p class="menu-rodape">Quem junta, vende.${C.demo ? " · Versão de teste" : ""}<br>Um produto Capacity Case</p>`;
     $("#btn-sair")?.addEventListener("click", async () => { await sb.auth.signOut({ scope: "local" }); location.hash = "#/"; location.reload(); });
     const avisos = (estado.respostas ?? 0) + (estado.paraAvaliar ?? 0);
     $("#topo-nome").innerHTML = logado
@@ -771,7 +771,8 @@
         <ol class="como-passos"><li><span class="num-placa">1</span><b>Anuncie sem preço</b><small>Material, peso e foto. Leva um minuto.</small></li>
           <li><span class="num-placa">2</span><b>Receba ofertas</b><small>Quem compra perto manda a oferta só para você.</small></li>
           <li><span class="num-placa">3</span><b>Aceite a melhor</b><small>O WhatsApp aparece e vocês combinam a retirada.</small></li></ol>
-      </section>`;
+      </section>
+      <p class="assinatura">Sucata Livre é um produto <a href="https://capacitycase.com.br" target="_blank" rel="noopener">Capacity Case</a></p>`;
     el.addEventListener("click", (e) => {
       const c = e.target.closest("[data-cat]");
       if (c) { const [n, ids] = CATEGORIAS[Number(c.dataset.cat)]; buscar(n, ids); return; }
