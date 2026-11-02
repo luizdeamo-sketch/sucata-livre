@@ -165,8 +165,44 @@
     return !!f && agora >= f.abre && agora < f.fecha;
   };
 
-  // ── mapa em SVG (sem serviço externo de mapa) ────────────────────────────
-  const CIDADES = [["Salto", -23.2003, -47.2869], ["Itu", -23.2642, -47.2992], ["Indaiatuba", -23.0882, -47.2181], ["Sorocaba", -23.5015, -47.4581],
+  // ── mapa real (Leaflet + OpenStreetMap); o desenho em SVG fica de reserva se o mapa não carregar ──
+  // Quem não é comprador aprovado recebe o anúncio de venda com o ponto arredondado (≈ 1 km): no mapa ele vira
+  // uma área de 500 m, nunca um pino na porta de quem vende. Comprador é empresa: o pino fica no endereço.
+  let mapaPendente = null;
+  function mapaHTML(pontos, classe) {
+    if (!window.L) return mapaSVG(pontos, classe);
+    mapaPendente = { pontos, classe };
+    return `<div class="mapa-real" id="mapa-real" role="region" aria-label="Mapa de quem está perto"></div>`;
+  }
+  function montarMapa(el) {
+    const p = mapaPendente; mapaPendente = null;
+    const caixa = $("#mapa-real", el); if (!p || !caixa || !window.L) return;
+    const c = estado.local, venda = p.classe === "m-anu", aproximado = venda && estado.comprador?.status !== "aprovado";
+    const mapa = L.map(caixa, { scrollWheelZoom: false, attributionControl: true }).setView([c.lat, c.lng], 13);
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18, attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>' }).addTo(mapa);
+    const raio = L.circle([c.lat, c.lng], { radius: estado.raio * 1000, color: "#82878e", weight: 2, dashArray: "6 6", fill: false, interactive: false }).addTo(mapa);
+    const pino = (txt, cor, extra = "") => L.divIcon({ className: "pino-mapa", html: `<span class="pm ${extra}" style="background:${cor}">${txt}</span>`, iconSize: [30, 30], iconAnchor: [15, 15] });
+    L.marker([c.lat, c.lng], { icon: pino("você", "#14171c", "pm-eu"), keyboard: false, zIndexOffset: 1000 }).addTo(mapa)
+      .bindTooltip(c.padrao ? "Centro de Salto (digite seu CEP)" : "Você (pelo CEP)");
+    const cor = venda ? "#b4461a" : "#1f5c99";
+    const limites = [[c.lat, c.lng]];
+    p.pontos.forEach((x, i) => {
+      if (x.lat == null || x.lng == null) return;
+      limites.push([x.lat, x.lng]);
+      if (aproximado) L.circle([x.lat, x.lng], { radius: 500, color: cor, weight: 1, fillColor: cor, fillOpacity: .12, interactive: false }).addTo(mapa);
+      const m = L.marker([x.lat, x.lng], { icon: pino(i + 1, cor), title: venda ? tituloItens(x.itens) : x.nome }).addTo(mapa);
+      m.bindTooltip(`${i + 1}. ${esc(venda ? tituloItens(x.itens) : x.nome)}${aproximado ? " · área aproximada" : ""}`);
+      m.on("click", () => {
+        const alvo = venda ? $(`[data-abrir="${x.id}"]`, el) : $$(".lista-compra > article", el)[i];
+        if (!alvo) return;
+        if (venda) alvo.click(); else { alvo.scrollIntoView({ behavior: "smooth", block: "center" }); alvo.classList.add("piscar"); setTimeout(() => alvo.classList.remove("piscar"), 1600); }
+      });
+    });
+    mapa.fitBounds(L.latLngBounds(limites), { padding: [30, 30], maxZoom: 15 });
+    setTimeout(() => mapa.invalidateSize(), 200);
+  }
+
+  const CIDADES =[["Salto", -23.2003, -47.2869], ["Itu", -23.2642, -47.2992], ["Indaiatuba", -23.0882, -47.2181], ["Sorocaba", -23.5015, -47.4581],
     ["Jundiaí", -23.1857, -46.8841], ["Campinas", -22.9056, -47.0608], ["Cabreúva", -23.3075, -47.1331], ["Porto Feliz", -23.2154, -47.5233], ["Itupeva", -23.1531, -47.0578]];
   function mapaSVG(pontos, classe) {
     const c = estado.local;
@@ -302,6 +338,7 @@
     window.Acomp.tela(nome);
     try {
       await TELAS[nome](el);
+      montarMapa(el);
       if (estado.sessao && estado.eu) await retornoNaTela(el, nome);
     } catch (e) {
       el.innerHTML = `<div class="cartao erro"><h3>Não conseguimos abrir esta tela</h3><p>${esc(await msgErro(e))}</p>
@@ -513,7 +550,7 @@
             </article>`; }).join("")}</div>`
             : `<div class="cartao vazio">${l ? `Ninguém comprando esse material até ${estado.raio} km. Aumente a distância ou anuncie: os compradores da região veem o seu anúncio.` : "Digite seu CEP para ver quem compra perto."}</div>`}
         </section>
-        ${l && lista.length ? `<section><h2>No mapa</h2>${mapaSVG(lista, "m-comp")}
+        ${l && lista.length ? `<section><h2>No mapa</h2>${mapaHTML(lista, "m-comp")}
           <p class="legenda"><span class="ponto m-eu-l"></span>você <span class="ponto m-comp-l"></span>quem compra (número = lista)</p>${tabelaReferencia()}</section>` : l ? `<section>${tabelaReferencia()}</section>` : ""}
       </div>`;
     ligarCaixaCep(el);
@@ -879,8 +916,9 @@
             </button>`).join("")}</div>`
             : `<div class="cartao vazio">${l ? "Nenhum anúncio desse material perto agora." : "Digite o CEP para ver os anúncios perto."}</div>`}
         </section>
-        ${l && lista.length ? `<section><h2>No mapa</h2>${mapaSVG(lista, "m-anu")}
-          <p class="legenda"><span class="ponto m-eu-l"></span>você <span class="ponto m-anu-l"></span>material à venda (número = lista)</p>${tabelaReferencia()}</section>` : ""}
+        ${l && lista.length ? `<section><h2>No mapa</h2>${mapaHTML(lista, "m-anu")}
+          <p class="legenda"><span class="ponto m-eu-l"></span>você <span class="ponto m-anu-l"></span>material à venda (número = lista)</p>
+          ${podeOfertar ? "" : `<p class="suave" style="font-size:.9rem;margin-top:4px">O círculo em volta do número é a área aproximada. O endereço só aparece quando o negócio é fechado.</p>`}${tabelaReferencia()}</section>` : ""}
       </div>
       <div id="detalhe"></div>`;
     ligarCaixaCep(el);

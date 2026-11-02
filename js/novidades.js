@@ -1,6 +1,14 @@
 // Sucata Livre · o que mudou em cada versão (aparece depois que a pessoa clica em Atualizar).
 window.NOVIDADES = [
   {
+    versao: "2026-11-02-5",
+    data: "02/11/2026",
+    itens: [
+      "Mapa de verdade, com ruas e bairros: toque num número para abrir o anúncio.",
+      "Para proteger quem vende, o anúncio aparece como uma área aproximada, nunca o endereço exato.",
+    ],
+  },
+  {
     versao: "2026-11-02-4",
     data: "02/11/2026",
     itens: [
