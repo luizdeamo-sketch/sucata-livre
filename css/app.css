@@ -608,3 +608,16 @@ body { background: var(--fundo); }
   .painel-topo > .filtros .categorias { flex: 1; min-width: 0; flex-wrap: wrap; overflow: visible; }
   .painel-topo > .busca-ativa, .painel-topo > .chamada-fina { grid-column: 1 / -1; margin: 0; }
 }
+
+/* entrar com Google ou Facebook, e o cadastro de 4 campos */
+.entrar-opcoes { display: grid; gap: 10px; }
+.btn-provedor { display: flex; align-items: center; justify-content: center; gap: 12px; min-height: 54px; font-size: 1.05rem; font-weight: 800; border-radius: 12px; width: 100%; }
+.btn-provedor svg { width: 24px; height: 24px; flex: none; }
+.btn-provedor.google { background: #fff; color: #1f2328; border: 1.5px solid #c7c9c2; box-shadow: inset 0 -3px 0 rgba(0, 0, 0, .08); }
+.btn-provedor.facebook { background: #1877f2; color: #fff; border: 0; box-shadow: inset 0 -3px 0 rgba(0, 0, 0, .2); }
+.entrar-opcoes .suave { margin: 0; }
+#form-cad .campos { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+@media (min-width: 900px) {
+  .entrar-opcoes { grid-template-columns: 1fr 1fr; }
+  .entrar-opcoes .suave { grid-column: 1 / -1; }
+}

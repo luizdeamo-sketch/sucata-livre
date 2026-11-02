@@ -3,7 +3,7 @@
   const C = window.SLV_CONFIG;
   // pasta do app (onde está o index.html), tirada do endereço deste arquivo: vale no site e na página de teste
   const BASE_APP = new URL("..", document.currentScript?.src ?? location.href).href;
-  const sb = window.supabase.createClient(C.url, C.anon, { auth: { persistSession: true, storageKey: "slv-auth" } });
+  const sb = window.supabase.createClient(C.url, C.anon, { auth: { persistSession: true, storageKey: "slv-auth", flowType: "pkce", detectSessionInUrl: true } });
 
   // ── utilidades ───────────────────────────────────────────────────────────
   const $ = (s, el = document) => el.querySelector(s);
@@ -505,7 +505,7 @@
     const vitrine = [["inicio", "Início", "inicio"], ["anuncios", "Material à venda", "comprar"], ["quem-compra", "Quem compra", "vender"], ["quanto-vale", "Quanto vale a minha sucata", "preco"]];
     if (estado.vendedor || !estado.comprador) vitrine.push(["anunciar", estado.vendedor ? "Anunciar" : "Anunciar minha sucata", "anunciar"]);
     const conta = [];
-    if (estado.vendedor) conta.push(["meus-anuncios", "Meus anúncios", "meus"], ["cad-vendedor", "Meu cadastro", "pessoa"]);
+    if (estado.vendedor) conta.push(["meus-anuncios", "Meus anúncios", "meus"], ["cadastro", "Meu cadastro", "pessoa"]);
     if (estado.comprador) conta.push(["inicio-comprador", "Minha empresa", "empresa"], ["minhas-ofertas", "Minhas ofertas", "oferta"],
       ["anunciar-compra", "Anunciar que compro", "megafone"], ["minhas-procuras", "Meus anúncios de compra", "meus"], ["o-que-compro", "O que compro", "caixa"]);
     if (logado && (!estado.vendedor || !estado.comprador)) conta.push(["papel", estado.vendedor || estado.comprador ? "Também quero comprar ou vender" : "Começar a vender ou comprar", "anunciar"]);
@@ -567,7 +567,7 @@
   function telaInicial() { return "inicio"; } // como nos classificados grandes: todo mundo começa pela vitrine
 
   // vitrine aberta: ver é livre; fazer negócio (WhatsApp, oferta, anúncio) pede cadastro
-  const PUBLICAS = new Set(["inicio", "anuncios", "quem-compra", "quanto-vale", "anunciar", "comprador", "instalar", "creditos", "apresentacao", "entrar"]);
+  const PUBLICAS = new Set(["inicio", "anuncios", "quem-compra", "quanto-vale", "anunciar", "comprador", "instalar", "creditos", "apresentacao", "entrar", "cadastro"]);
   const VOLTA = "slv-voltar";
   const guardarVolta = (tela) => { try { sessionStorage.setItem(VOLTA, tela); } catch {} };
   const lerVolta = () => { try { return sessionStorage.getItem(VOLTA); } catch { return null; } };
@@ -576,10 +576,10 @@
   function precisa(papel, voltar) {
     guardarVolta(voltar);
     if (!estado.sessao) {
-      if (!C.demo) avisar(papel === "comprador" ? "Para fazer oferta, entre e cadastre a sua empresa. É grátis." : "Para fazer negócio, entre com o seu celular. É grátis.", "info");
+      if (!C.demo) avisar(papel === "comprador" ? "Para fazer oferta, entre e cadastre a sua empresa. É grátis." : "Para fazer negócio, entre com o Google ou o Facebook. É grátis.", "info");
       ir("entrar"); return false;
     }
-    if (papel === "vendedor" && !estado.vendedor) { ir("cad-vendedor"); return false; }
+    if (!cadastroCompleto() || (papel === "vendedor" && !estado.vendedor)) { ir("cadastro"); return false; }
     if (papel === "comprador" && !estado.comprador) { ir("cad-comprador"); return false; }
     if (papel === "comprador" && estado.comprador.status !== "aprovado") { ir("inicio-comprador"); return false; }
     limparVolta(); return true;
@@ -835,64 +835,140 @@
       </div>`;
   };
 
+  // ── entrar: Google ou Facebook, sem senha nova ──────────────────────────
+  const LOGO_GOOGLE = `<svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>`;
+  const LOGO_FACEBOOK = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" d="M14 8.5V6.8c0-.8.2-1.3 1.4-1.3H17V2.6c-.3 0-1.2-.1-2.3-.1-2.3 0-3.9 1.4-3.9 4v2H8.3v3.2h2.5V21H14v-9.3h2.6l.4-3.2z"/></svg>`;
+  // cadastro completo = já informou o WhatsApp e tem um lugar para vender ou comprar
+  const cadastroCompleto = () => !!(estado.eu?.telefone && (estado.vendedor || estado.comprador));
+
   TELAS.entrar = async (el) => {
-    if (estado.sessao) return ir(telaInicial());
-    if (C.demo) { // versão de teste: não pede telefone de ninguém
-      const volta = lerVolta() && PUBLICAS.has(lerVolta().split("?")[0]) ? lerVolta() : "anuncios";
-      el.innerHTML = `<h1>Versão de teste</h1>
-        <div class="cartao alerta"><h3>O cadastro ainda não está aberto</h3>
-          <p>Você está vendo o Sucata Livre em teste. Os anúncios são exemplos, e por isso ninguém entra, anuncia de verdade nem faz oferta ainda.</p>
-          <p style="margin:0">Quando abrir, este é o passo em que você entra com o celular: chega um código por SMS, sem senha, e você volta direto para onde estava.</p></div>
-        <div class="cartao"><h3>O que dá para testar agora</h3>
-          <ul class="passos-lista"><li>Ver os anúncios de venda e de compra, no mapa e na lista.</li><li>Calcular quanto vale a sua sucata.</li>
-            <li>Montar um anúncio inteiro, com fotos e características (ele não é publicado).</li><li>Abrir a página de um comprador e instalar o app no celular.</li></ul>
-          <p class="suave" style="margin:10px 0 0">Achou algo estranho ou tem uma ideia? Mande para quem te passou o link.</p></div>
-        <div class="acoes"><a class="btn btn-primario" href="#/${esc(volta)}">Voltar</a><a class="btn btn-secundario" href="#/quanto-vale">Calcular quanto vale</a></div>`;
-      return;
-    }
+    if (estado.sessao) return ir(cadastroCompleto() ? lerVolta() ?? telaInicial() : "cadastro");
+    const volta = lerVolta() && PUBLICAS.has(lerVolta().split("?")[0]) ? lerVolta() : "anuncios";
     el.innerHTML = `
-      <h1>Entrar ou criar cadastro</h1>
-      <p>Ver os anúncios é livre. O cadastro é para fazer negócio: anunciar, mandar oferta e ver o WhatsApp. É grátis.</p>
-      <p class="suave">Mandamos um código por SMS para o seu celular. Não precisa de senha.</p>
-      <div class="cartao" id="passo-tel">
-        <label for="tel">Seu celular com DDD</label>
-        <input type="tel" id="tel" inputmode="numeric" autocomplete="tel-national" placeholder="(11) 99999-9999">
-        <div class="acoes"><button class="btn btn-primario" id="btn-codigo">Receber código</button></div>
-      </div>
-      <div class="cartao oculto" id="passo-cod">
-        <label for="cod">Código que chegou por SMS</label>
-        <input type="text" id="cod" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000">
-        <div class="acoes"><button class="btn btn-primario" id="btn-entrar">Entrar</button>
-        <button class="btn btn-secundario" id="btn-voltar">Trocar o número</button></div>
-      </div>
-      <p><a href="#/${esc(lerVolta() && PUBLICAS.has(lerVolta()) ? lerVolta() : "anuncios")}">← Voltar aos anúncios</a></p>`;
-    const tel = $("#tel", el);
-    tel.addEventListener("input", () => (tel.value = fmtTel(tel.value)));
-    let fone = null;
-    $("#btn-codigo", el).addEventListener("click", (e) => ocupado(e.currentTarget, async () => {
-      const d = digitos(tel.value);
-      if (d.length < 10 || d.length > 11) throw new Error("Confira o número: DDD + celular.");
-      fone = `+55${d}`;
-      const { error } = await sb.auth.signInWithOtp({ phone: fone });
-      if (error) throw new Error(/provider|disabled|not enabled/i.test(error.message)
-        ? "O login por telefone ainda não foi ligado. Fale com o Luiz." : error.message);
-      $("#passo-tel", el).classList.add("oculto"); $("#passo-cod", el).classList.remove("oculto"); $("#cod", el).focus();
-    }));
-    $("#btn-voltar", el).addEventListener("click", () => { $("#passo-cod", el).classList.add("oculto"); $("#passo-tel", el).classList.remove("oculto"); });
-    $("#btn-entrar", el).addEventListener("click", (e) => ocupado(e.currentTarget, async () => {
-      const { data, error } = await sb.auth.verifyOtp({ phone: fone, token: digitos($("#cod", el).value), type: "sms" });
-      if (error) throw new Error("Código errado ou vencido. Peça outro.");
-      estado.sessao = data.session;
-      await aoEntrar();
-      ir(lerVolta() ?? telaInicial());
-    }));
+      <div class="entrar">
+        <h1>Entrar ou criar cadastro</h1>
+        <p>Ver os anúncios é livre. O cadastro é para fazer negócio: anunciar, mandar oferta e ver o WhatsApp. É grátis.</p>
+        ${C.demo ? `<div class="cartao alerta"><h3>Versão de teste</h3><p style="margin:0">Os anúncios são exemplos e o cadastro ainda não está aberto. Dá para ver como ele vai ser: toque num dos botões e preencha. Nada é gravado.</p></div>` : ""}
+        <div class="cartao entrar-opcoes">
+          <button type="button" class="btn btn-provedor google" data-provedor="google">${LOGO_GOOGLE}<span>Continuar com Google</span></button>
+          <button type="button" class="btn btn-provedor facebook" data-provedor="facebook">${LOGO_FACEBOOK}<span>Continuar com Facebook</span></button>
+          <p class="suave">Use a conta que você já tem no Gmail ou no Facebook. Não precisa criar senha.</p>
+        </div>
+        <div class="cartao">
+          <h3>Depois, só 4 coisas</h3>
+          <ul class="passos-lista"><li>Seu nome.</li><li>WhatsApp com DDD: é por ele que o negócio acontece.</li><li>CEP: para mostrar o que está perto de você.</li><li>CPF ou CNPJ: só a equipe vê. Com CNPJ, você também pode comprar.</li></ul>
+        </div>
+        <p><a href="#/${esc(volta)}">← Voltar</a></p>
+      </div>`;
+    el.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-provedor]"); if (!b) return;
+      if (C.demo) { ir("cadastro"); return; }
+      ocupado(b, async () => {
+        // volta para a mesma página (sem o #), e o Supabase devolve ?code= para trocar pela sessão
+        const { error } = await sb.auth.signInWithOAuth({ provider: b.dataset.provedor, options: { redirectTo: location.origin + location.pathname } });
+        if (error) throw new Error(/provider|not enabled|unsupported/i.test(error.message)
+          ? `A entrada pelo ${b.dataset.provedor === "google" ? "Google" : "Facebook"} ainda não foi ligada. Fale com a gente pelo 💬.` : error.message);
+      });
+    });
   };
+
+  // ── complete o cadastro: nome, WhatsApp, CEP e CPF ou CNPJ ──────────────
+  const fmtDoc = (v) => { const d = digitos(v); return d.length > 11 ? fmtCNPJ(d) : fmtCPF(d); };
+  TELAS.cadastro = async (el) => {
+    if (!C.demo && !estado.sessao) { guardarVolta("cadastro"); return ir("entrar"); }
+    const meta = estado.sessao?.user?.user_metadata ?? {};
+    const nome0 = estado.eu?.nome ?? meta.full_name ?? meta.name ?? "";
+    let cepOk = estado.vendedor?.cep ?? null;
+    const doc0 = estado.sessao && estado.eu ? (await sb.from("slv_documentos").select("documento").maybeSingle()).data?.documento ?? "" : "";
+    el.innerHTML = `
+      <div class="entrar">
+        <h1>${estado.eu ? "Meu cadastro" : "Falta pouco"}</h1>
+        <p>${estado.eu ? "Confira os seus dados." : "Complete o cadastro para fazer negócio. Todos os campos são obrigatórios."}</p>
+        ${C.demo ? `<div class="cartao alerta"><p style="margin:0"><b>Versão de teste:</b> pode preencher para ver como funciona. Nada é gravado.</p></div>` : ""}
+        <form class="cartao" id="form-cad" novalidate>
+          <div class="campos">
+            <div><label for="c-nome">Seu nome</label><input type="text" id="c-nome" autocomplete="name" value="${esc(nome0)}" required></div>
+            <div><label for="c-zap">WhatsApp com DDD</label><input type="tel" id="c-zap" inputmode="numeric" autocomplete="tel-national" placeholder="(11) 99999-9999" value="${esc(estado.eu?.telefone ? fmtTel(estado.eu.telefone) : "")}" required>
+              <span class="dica">Só aparece para quem fechar negócio com você.</span></div>
+            <div><label for="c-cep">CEP</label><input type="text" id="c-cep" inputmode="numeric" placeholder="00000-000" value="${esc(cepOk ? fmtCEP(cepOk) : "")}" required>
+              <span class="dica" id="c-cep-info">Não sabe? Procure “CEP + nome da sua rua” na internet.</span></div>
+            <div><label for="c-doc">CPF ou CNPJ</label><input type="text" id="c-doc" inputmode="numeric" placeholder="000.000.000-00" value="${esc(doc0 ? fmtDoc(doc0) : "")}" required>
+              <span class="dica">Só a equipe do Sucata Livre vê. Com CNPJ, você também pode comprar.</span></div>
+          </div>
+          <p style="margin-top:16px"><label class="check"><input type="checkbox" id="c-termo"><span>Aceito o termo de uso e declaro que só negocio material de origem lícita.</span></label></p>
+          <div class="acoes"><button type="submit" class="btn btn-primario">${estado.eu ? "Salvar" : "Criar meu cadastro"}</button></div>
+        </form>
+      </div>`;
+    const zap = $("#c-zap", el), cep = $("#c-cep", el), doc = $("#c-doc", el), info = $("#c-cep-info", el);
+    zap.addEventListener("input", () => (zap.value = fmtTel(zap.value)));
+    doc.addEventListener("input", () => (doc.value = fmtDoc(doc.value)));
+    cep.addEventListener("input", async () => {
+      cep.value = fmtCEP(cep.value); cepOk = null;
+      const d = digitos(cep.value);
+      if (d.length !== 8) return;
+      info.textContent = "Procurando…";
+      try {
+        const r = await consultarCep(d), g = r.geo;
+        cepOk = d;
+        info.innerHTML = `📍 ${esc([g.logradouro, g.bairro, `${g.cidade}/${g.uf}`].filter(Boolean).join(", "))}`
+          + (r.na_regiao ? "" : `<br><b>Ainda não chegamos em ${esc(g.cidade)}. Você entra na lista de espera.</b>`);
+      } catch (e) { info.textContent = e.message; }
+    });
+    $("#form-cad", el).addEventListener("submit", (e) => {
+      e.preventDefault();
+      ocupado(e.submitter ?? $("#form-cad button", el), async () => {
+        const nome = $("#c-nome", el).value.trim(), z = digitos(zap.value).replace(/^55(?=\d{11}$)/, ""), d = digitos(doc.value);
+        if (nome.length < 2) throw new Error("Escreva seu nome.");
+        if (!/^[1-9][1-9]9\d{8}$/.test(z)) throw new Error("Confira o WhatsApp: DDD + celular com 9 dígitos.");
+        if (!cepOk) throw new Error("Digite um CEP válido e espere aparecer o endereço.");
+        if (!(d.length === 11 && cpfValido(d)) && !(d.length === 14 && cnpjValido(d))) throw new Error("CPF ou CNPJ inválido. Confira os números.");
+        if (!$("#c-termo", el).checked) throw new Error("Para continuar, aceite o termo de uso.");
+        if (C.demo) {
+          el.innerHTML = `<div class="entrar"><div class="cartao destaque"><h1>Assim fica o seu cadastro</h1>
+            <p><b>${esc(nome)}</b> · WhatsApp ${esc(fmtTel(z))} · CEP ${esc(fmtCEP(cepOk))} · ${d.length === 11 ? "CPF" : "CNPJ"} ${esc(fmtDoc(d))}</p>
+            <p>${d.length === 14 ? "Com o CNPJ, a gente consulta a Receita na hora: se a empresa é de reciclagem, você já pode vender e comprar." : "Pronto para anunciar a sua sucata e ver quem compra perto."}</p>
+            <p class="suave" style="margin:0">Versão de teste: nada foi gravado.</p></div>
+            <div class="acoes"><a class="btn btn-primario" href="#/${esc(lerVolta() ?? "inicio")}">Voltar</a></div></div>`;
+          return;
+        }
+        const { data, error } = await sb.rpc("slv_cadastro_simples", { p_nome: nome, p_whatsapp: z, p_cep: cepOk, p_documento: d, p_aceito: true });
+        if (error) throw error;
+        if (data.status === "fora_regiao") {
+          el.innerHTML = `<div class="cartao alerta"><h1>Ainda não chegamos em ${esc(data.cidade)}/${esc(data.uf)}</h1>
+            <p>Você está na lista de espera. Avisamos pelo seu WhatsApp quando o Sucata Livre abrir aí.</p></div>`;
+          return;
+        }
+        // com CNPJ, a empresa também vira compradora: consulta a Receita e aprova sozinha se for de reciclagem
+        let msg = "Cadastro feito! 🎉";
+        if (data.tipo === "cnpj" && !estado.comprador) {
+          const r = await sb.functions.invoke("slv-comprador", { body: { acao: "salvar", cnpj: d, nome, telefone_comercial: z, faz_coleta: false, aceito: true,
+            horario: { seg_sex: { abre: "08:00", fecha: "18:00" }, sab: { abre: "08:00", fecha: "12:00" }, dom: null } } });
+          msg = r.error ? "Cadastro feito! A parte de comprador da empresa fica em análise." : "Cadastro feito! Sua empresa também pode comprar. 🎉";
+        }
+        estado.local = null;
+        await carregarPerfil(); montarMenu(); avisar(msg, "ok");
+        ir(lerVolta() ?? telaInicial());
+      });
+    });
+  };
+  // dígitos verificadores, para avisar na hora (o banco confere de novo)
+  function cpfValido(d) {
+    if (/^(\d)\1{10}$/.test(d)) return false;
+    for (const k of [9, 10]) { let s = 0; for (let i = 0; i < k; i++) s += +d[i] * (k + 1 - i); const r = (s * 10) % 11 % 10; if (r !== +d[k]) return false; }
+    return true;
+  }
+  function cnpjValido(d) {
+    if (/^(\d)\1{13}$/.test(d)) return false;
+    const P = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+    for (const k of [12, 13]) { let s = 0; for (let i = 0; i < k; i++) s += +d[i] * P[i + 13 - k]; const r = s % 11 < 2 ? 0 : 11 - (s % 11); if (r !== +d[k]) return false; }
+    return true;
+  }
 
   TELAS.papel = async (el) => {
     el.innerHTML = `
       <h1>Como você vai usar o Sucata Livre?</h1>
       <div class="grade">
-        ${estado.vendedor ? "" : `<a class="cartao" href="#/cad-vendedor" style="text-decoration:none;color:inherit">
+        ${estado.vendedor ? "" : `<a class="cartao" href="#/cadastro" style="text-decoration:none;color:inherit">
           <h3>Eu vendo material</h3><p class="suave">Catador ou sucateiro: quero anunciar e receber ofertas, ou saber quem compra perto.</p></a>`}
         ${estado.comprador ? "" : `<a class="cartao" href="#/cad-comprador" style="text-decoration:none;color:inherit">
           <h3>Eu compro material</h3><p class="suave">Ferro-velho, depósito ou recicladora com CNPJ: quero ver os anúncios perto.</p></a>`}
@@ -1090,8 +1166,8 @@
             <div class="tags">${etiquetasCaracteristicas(R)}</div>
             <p class="suave">${R.fotos.length} foto${R.fotos.length === 1 ? "" : "s"}${R.risco ? " · com declaração de origem" : ""}</p>
             <div class="estimativa">${textoEstimativa(itensR())}</div></div>
-          ${estado.vendedor ? "" : C.demo ? `<p class="suave">Versão de teste: o anúncio não é publicado. Quando o cadastro abrir, aqui pedimos o seu celular e nada do que você preencheu se perde.</p>` : `<p class="suave">Para publicar, pedimos o seu celular (chega um código por SMS) e um cadastro rápido. Nada do que você preencheu se perde.</p>`}
-          <div class="acoes"><button type="button" class="btn btn-secundario" data-ir="2">Voltar</button><button type="button" class="btn btn-primario" id="publicar">${estado.vendedor ? "Publicar anúncio" : C.demo ? "Publicar (versão de teste)" : "Publicar: entrar com o celular"}</button></div>`;
+          ${estado.vendedor ? "" : C.demo ? `<p class="suave">Versão de teste: o anúncio não é publicado. Quando o cadastro abrir, aqui pedimos o seu celular e nada do que você preencheu se perde.</p>` : `<p class="suave">Para publicar, entre com o Google ou o Facebook e complete um cadastro rápido. Nada do que você preencheu se perde.</p>`}
+          <div class="acoes"><button type="button" class="btn btn-secundario" data-ir="2">Voltar</button><button type="button" class="btn btn-primario" id="publicar">${estado.vendedor ? "Publicar anúncio" : C.demo ? "Publicar (versão de teste)" : "Publicar: entrar e cadastrar"}</button></div>`;
         const c = $("#cep-an", el);
         c.addEventListener("input", async () => {
           c.value = fmtCEP(c.value); const d = digitos(c.value); R.cep = d; R.geo = null;
@@ -1177,7 +1253,7 @@
   // ── quem vende: meus anúncios e ofertas recebidas ───────────────────────
   const SIT_ANUNCIO = { publicado: ["No ar", "ok"], vendido: ["Vendido", "dinheiro"], retirado: ["Retirado", ""], expirado: ["Expirou", "atencao"] };
   TELAS["meus-anuncios"] = async (el) => {
-    if (!estado.vendedor) return ir("cad-vendedor");
+    if (!estado.vendedor) return ir("cadastro");
     await carregarCatalogo();
     const { data, error } = await sb.rpc("slv_meus_anuncios");
     if (error) throw error;
@@ -1692,7 +1768,13 @@
     estado.sessao = data.session;
     $("#btn-menu").hidden = false;
     if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
-    if (estado.sessao) { try { await aoEntrar(); } catch (e) { console.warn(e); } }
+    // volta do Google ou do Facebook: tira o ?code= do endereço
+    if (/[?&](code|error)=/.test(location.search)) {
+      const q = new URLSearchParams(location.search);
+      if (q.get("error")) setTimeout(() => avisar("Não deu para entrar: " + (q.get("error_description") ?? q.get("error")), "erro"), 300);
+      history.replaceState(null, "", location.pathname + (lerVolta() ? "#/" + lerVolta() : location.hash));
+    }
+    if (estado.sessao) { try { await aoEntrar(); } catch (e) { console.warn(e); } if (estado.eu !== undefined && !cadastroCompleto()) location.hash = "#/cadastro"; }
     else { montarMenu(); carregarCatalogo().catch(() => {}); }
     await rota();
     localAutomatico();

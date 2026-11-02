@@ -1,6 +1,15 @@
 // Sucata Livre · o que mudou em cada versão (aparece depois que a pessoa clica em Atualizar).
 window.NOVIDADES = [
   {
+    versao: "2026-11-02-18",
+    data: "02/11/2026",
+    itens: [
+      "Cadastro mais simples: entre com a sua conta do Google (Gmail) ou do Facebook, sem criar senha.",
+      "Depois, só 4 campos: nome, WhatsApp com DDD, CEP e CPF ou CNPJ.",
+      "Com CNPJ, a sua empresa também pode comprar: a gente consulta a Receita na hora.",
+    ],
+  },
+  {
     versao: "2026-11-02-17",
     data: "02/11/2026",
     itens: [
