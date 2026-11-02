@@ -1,6 +1,14 @@
 // Sucata Livre · o que mudou em cada versão (aparece depois que a pessoa clica em Atualizar).
 window.NOVIDADES = [
   {
+    versao: "2026-11-02-4",
+    data: "02/11/2026",
+    itens: [
+      "Anúncios de exemplo na vitrine, com a marca Exemplo, para mostrar como funciona enquanto chegam os anúncios de verdade.",
+      "Exemplo não recebe oferta e não tem WhatsApp.",
+    ],
+  },
+  {
     versao: "2026-11-02-3",
     data: "02/11/2026",
     itens: [

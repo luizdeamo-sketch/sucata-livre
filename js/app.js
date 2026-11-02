@@ -227,6 +227,9 @@
       rota();
     });
   }
+  // anúncios de exemplo (enquanto a vitrine não tem anúncios reais): um aviso só, no alto da lista
+  const avisoExemplos = (lista) => (lista ?? []).some((x) => x.exemplo)
+    ? `<p class="aviso-exemplo">Os anúncios com a marca <span class="etiqueta exemplo">Exemplo</span> mostram como a vitrine funciona e não fazem negócio. Eles saem quando chegarem os anúncios de verdade.</p>` : "";
   const nomesMateriais = (ids) => { const M = MAT(); const n = (ids ?? []).map((id) => M[id]?.nome.toLowerCase()).filter(Boolean); return n.length > 1 ? `${n.slice(0, -1).join(", ")} e ${n.at(-1)}` : n[0] ?? "—"; };
 
   // ── menu e navegação ─────────────────────────────────────────────────────
@@ -493,9 +496,10 @@
       <div class="duas">
         <section>
           <h2>${lista.length} comprador${lista.length === 1 ? "" : "es"} até ${estado.raio} km <small class="suave">${reserva ? "cadastrados (ainda sem anúncio de compra)" : "anúncios de compra"}</small></h2>
+          ${avisoExemplos(lista)}
           ${lista.length ? `<div class="lista-compra">${lista.map((c, i) => { const ab = abertoAgora(c.horario); return `
             <article class="cartao comprador"><div class="comprador-topo"><span class="pino">${i + 1}</span>
-              <div class="cn">${c.reserva ? "" : `<span class="etiqueta compra" style="justify-self:start">Compra</span>`}<h3>${esc(c.nome)}</h3><span class="suave">${esc([c.bairro, c.cidade].filter(Boolean).join(", "))}</span></div>
+              <div class="cn"><span class="tags">${c.reserva ? "" : `<span class="etiqueta compra">Compra</span>`}${c.exemplo ? `<span class="etiqueta exemplo">Exemplo</span>` : ""}</span><h3>${esc(c.nome)}</h3><span class="suave">${esc([c.bairro, c.cidade].filter(Boolean).join(", "))}</span></div>
               <span class="km">≈ ${km(c.distancia_km)} km</span></div>
               <div class="cods" aria-label="Compra ${esc(nomesMateriais(c.materiais))}">${(c.materiais ?? []).map(selo).join("")}</div>
               ${c.observacao ? `<p class="suave">“${esc(c.observacao)}”</p>` : ""}
@@ -504,7 +508,8 @@
                 ${Number(c.minimo_kg) > 0 ? `<span class="etiqueta">Mínimo ${String(c.minimo_kg).replace(".0", "")} kg</span>` : ""}
                 ${c.paga_pix ? `<span class="etiqueta">Paga no Pix na hora</span>` : ""}
                 ${c.horario?.seg_sex ? `<span class="etiqueta">seg a sex ${esc(c.horario.seg_sex.abre)} às ${esc(c.horario.seg_sex.fecha)}</span>` : ""}</div>
-              <div class="contato"><button type="button" class="btn btn-secundario" ${c.reserva ? `data-contato="${c.comprador_id}"` : `data-procura="${c.id}"`}>Ver WhatsApp e endereço</button></div>
+              <div class="contato">${c.exemplo ? `<span class="suave">Exemplo: mostra como fica um anúncio de compra, sem WhatsApp.</span>`
+                : `<button type="button" class="btn btn-secundario" ${c.reserva ? `data-contato="${c.comprador_id}"` : `data-procura="${c.id}"`}>Ver WhatsApp e endereço</button>`}</div>
             </article>`; }).join("")}</div>`
             : `<div class="cartao vazio">${l ? `Ninguém comprando esse material até ${estado.raio} km. Aumente a distância ou anuncie: os compradores da região veem o seu anúncio.` : "Digite seu CEP para ver quem compra perto."}</div>`}
         </section>
@@ -861,13 +866,14 @@
       <div class="duas">
         <section>
           <h2>${lista.length} anúncio${lista.length === 1 ? "" : "s"} até ${estado.raio} km <small class="suave">material à venda</small></h2>
+          ${avisoExemplos(lista)}
           ${lista.length ? `<div class="grade-anuncios">${lista.map((a) => `
             <button type="button" class="anuncio" data-abrir="${a.id}">
               <span class="foto">${a._foto ? `<img src="${esc(a._foto)}" alt="">` : selosItens(a.itens)}<span class="dist">≈ ${km(a.distancia_km)} km</span></span>
               <span class="txt"><b>${esc(tituloItens(a.itens))}</b>
                 <small class="suave">${esc([a.bairro, a.cidade].filter(Boolean).join(", "))} · ${ha(a.criado_em)}</small>
                 ${(() => { const f = faixaItens(a.itens); return f ? `<small class="estima">Na região vale <b>${reais0(f[0])} a ${reais0(f[1])}</b></small>` : ""; })()}
-                <span class="tags">${a.pode_buscar ? `<span class="etiqueta ok">Pode buscar</span>` : `<span class="etiqueta">Leva até você</span>`}
+                <span class="tags">${a.exemplo ? `<span class="etiqueta exemplo">Exemplo</span>` : ""}${a.pode_buscar ? `<span class="etiqueta ok">Pode buscar</span>` : `<span class="etiqueta">Leva até você</span>`}
                   ${a.tem_item_risco ? `<span class="etiqueta dinheiro">Com declaração de origem</span>` : ""}
                   ${a.minha_oferta ? `<span class="etiqueta">Sua oferta: ${reais(a.minha_oferta)}</span>` : ""}</span></span>
             </button>`).join("")}</div>`
@@ -895,7 +901,9 @@
         <p>Total: <b class="num">${String(totalKg(a.itens)).replace(".", ",")} kg</b>, conferidos na balança na hora.</p>
         <div class="estimativa">${textoEstimativa(a.itens)}</div>
         ${a.tem_item_risco ? `<div class="cartao alerta"><p>Quem vende marcou material de risco (fio, cabo ou peça de ferro) e declarou a origem. Confira antes de comprar.</p></div>` : ""}
-        ${podeOfertar ? `<h3>Sua oferta</h3>
+        ${a.exemplo ? `<div class="cartao alerta"><h3>Anúncio de exemplo</h3><p>Ele mostra como fica um anúncio no Sucata Livre e não recebe oferta. Os anúncios de verdade aparecem sem esta marca.</p></div>
+        <div class="acoes"><button type="button" class="btn btn-secundario fechar">Fechar</button></div>`
+        : podeOfertar ? `<h3>Sua oferta</h3>
         <p class="suave">🔒 Só quem vende vê a sua oferta. Os outros compradores não veem.</p>
         <div class="campos"><div><label for="oferta">Quanto você paga por tudo? (R$)</label>
           <input type="text" id="oferta" inputmode="decimal" value="${a.minha_oferta && a.minha_situacao === "enviada" ? esc(String(a.minha_oferta).replace(".", ",")) : ""}" placeholder="Ex.: 180,00"></div></div>
@@ -908,6 +916,7 @@
       document.body.appendChild(fundo);
       const fechar = () => fundo.remove();
       fundo.addEventListener("click", (e) => { if (e.target === fundo || e.target.closest(".fechar")) fechar(); });
+      if (a.exemplo) return;
       if (!podeOfertar) { $("#quero-ofertar", fundo).addEventListener("click", () => { fechar(); precisa("comprador", "anuncios"); }); return; }
       $("#ofertar", fundo).addEventListener("click", (e) => ocupado(e.currentTarget, async () => {
         const v = lerReais($("#oferta", fundo).value);
