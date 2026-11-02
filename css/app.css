@@ -439,3 +439,32 @@ textarea { min-height: 110px; resize: vertical; }
 .m-eu-l { background: var(--texto); } .m-comp-l { background: var(--compra); } .m-anu-l { background: var(--oxido); }
 .mapa .m-raio { fill: #fff; fill-opacity: .7; stroke: var(--linha-forte); }
 .anuncio .foto { aspect-ratio: 2 / 1; }
+
+/* ── topo da vitrine enxuto (02/11): a lista aparece logo, como num classificado ── */
+.vitrine-topo { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 14px; margin-bottom: 10px; }
+.chamada-vitrine { font: 900 clamp(1.7rem, 4.2vw, 2.4rem)/1 var(--f-titulo); text-transform: uppercase; margin: 0; }
+.vitrine-texto { margin: 0; font-size: .95rem; color: var(--suave); flex: 1 1 260px; }
+.vitrine-texto a { font-weight: 700; color: var(--texto); }
+.lado { margin-bottom: 10px; }
+.lado-op { display: flex; align-items: center; justify-content: center; min-height: 44px; padding: 6px 12px; font-size: 1rem; }
+.busca-cep { padding: 10px 14px; gap: 8px; margin-bottom: 10px; box-shadow: none; }
+.local-linha { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 28px; }
+.local-linha .dica { margin: 0; font-size: .95rem; color: var(--texto); }
+.btn-link { background: none; border: 0; padding: 6px 4px; font: 700 .95rem var(--f-texto); color: var(--compra); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; flex: none; }
+.busca-linha { align-items: stretch; }
+.busca-linha input { min-height: 46px; padding: 8px 12px; }
+.busca-linha .btn { min-height: 46px; padding: 8px 16px; }
+.filtros { gap: 6px; margin-bottom: 10px; }
+.filtros .chip { min-height: 40px; padding: 6px 14px; }
+.categorias { display: flex; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; gap: 6px; padding-bottom: 2px; }
+.categorias::-webkit-scrollbar { display: none; }
+.categoria { flex: none; min-height: 46px; padding: 5px 12px 5px 6px; gap: 8px; border-radius: 999px; }
+.categoria .cod, .cat-tudo { font-size: .68rem; min-width: 2.5em; height: 2.5em; }
+.categoria b { font-size: .9rem; }
+.categoria small { font-size: .76rem; }
+.chamada-fina { margin: 0 0 12px; font-size: .95rem; color: var(--suave); }
+.chamada-fina a { font-weight: 700; color: var(--texto); }
+@media (max-width: 760px) {
+  .so-largo { display: none; }
+  .tela { padding-top: 12px; }
+}

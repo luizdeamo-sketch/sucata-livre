@@ -239,15 +239,15 @@
   // caixa "Digite seu CEP" no topo das listas
   function caixaCep(titulo) {
     const l = estado.local;
-    return `<form class="busca-cep" id="busca-cep">
-      <label for="cep-busca">${titulo}</label>
-      <div class="busca-linha"><input type="text" id="cep-busca" inputmode="numeric" placeholder="Digite seu CEP" aria-label="CEP" value="${l ? esc(fmtCEP(l.cep)) : ""}">
-        <button type="submit" class="btn btn-primario">Buscar</button></div>
-      <div class="busca-rodape">
-        <small class="dica">${l?.padrao ? "📍 Mostrando Salto e região. Use a sua localização ou digite o CEP para ver o que está mais perto."
-          : l ? `📍 ${l.precisao === "aparelho" ? "Perto de você: " : ""}${esc([l.bairro, l.cidade].filter(Boolean).join(", "))} · ${esc(PRECISAO[l.precisao] ?? "")}` : "Digite o CEP para ver quem está perto."}</small>
-        ${navigator.geolocation ? `<button type="button" class="btn btn-secundario btn-local" id="usar-local">📍 Usar minha localização</button>` : ""}
-      </div>
+    const aberta = !l || l.padrao;
+    const onde = !l || l.padrao ? "Salto e região" : esc([l.bairro, l.cidade].filter(Boolean).join(", "));
+    return `<form class="busca-cep" id="busca-cep" aria-label="${esc(titulo)}">
+      <div class="local-linha"><small class="dica">📍 ${l?.precisao === "aparelho" ? "Perto de você: " : aberta ? "Mostrando " : ""}<b>${onde}</b>${aberta ? "" : ` · ${esc(PRECISAO[l.precisao] ?? "")}`}</small>
+        ${aberta ? "" : `<button type="button" class="btn-link" id="trocar-local">Trocar</button>`}</div>
+      <div class="busca-linha" id="busca-campos" ${aberta ? "" : "hidden"}>
+        <input type="text" id="cep-busca" inputmode="numeric" placeholder="Seu CEP" aria-label="CEP" value="${l ? esc(fmtCEP(l.cep)) : ""}">
+        <button type="submit" class="btn btn-primario">Buscar</button>
+        ${navigator.geolocation ? `<button type="button" class="btn btn-secundario btn-local" id="usar-local" aria-label="Usar minha localização">📍<span class="so-largo"> Minha localização</span></button>` : ""}</div>
     </form>`;
   }
   function ligarCaixaCep(el) {
@@ -264,6 +264,7 @@
         rota();
       });
     });
+    $("#trocar-local", el)?.addEventListener("click", (e) => { $("#busca-campos", el).hidden = false; e.currentTarget.hidden = true; i.focus(); });
     $("#usar-local", el)?.addEventListener("click", (e) => ocupado(e.currentTarget, async () => {
       await localDoAparelho();
       rota();
@@ -516,12 +517,11 @@
     limparVolta(); return true;
   }
   // seletor do lado (vender ou comprar) no alto da vitrine, e a frase da marca para quem ainda não entrou
-  const lado = (atual) => `${estado.sessao ? "" : `<section class="vitrine-topo"><p class="chamada-marca chamada-vitrine">Quem junta, vende.</p>
-      <p>Anúncios de sucata e reciclável de Salto e região, sem preço. Ver é livre; para fazer negócio, crie seu cadastro grátis.</p>
-      ${atual === "anuncios" ? `<p style="margin-top:10px"><a class="btn btn-secundario" href="#/quanto-vale">💰 Quanto vale a sua sucata? Veja na hora</a></p>` : ""}</section>`}
+  const lado = (atual) => `${estado.sessao ? "" : `<section class="vitrine-topo"><p class="chamada-vitrine">Quem junta, vende.</p>
+      <p class="vitrine-texto">Sucata e reciclável de Salto e região, sem preço. Ver é livre. <a href="#/quanto-vale">💰 Quanto vale a sua sucata?</a></p></section>`}
     <nav class="lado" aria-label="O que você quer fazer">
-      <a href="#/quem-compra" class="lado-op vende" ${atual === "quem-compra" ? 'aria-current="page"' : ""}>Quero vender<small>quem compra perto</small></a>
-      <a href="#/anuncios" class="lado-op compra" ${atual === "anuncios" ? 'aria-current="page"' : ""}>Quero comprar<small>material à venda</small></a>
+      <a href="#/quem-compra" class="lado-op vende" ${atual === "quem-compra" ? 'aria-current="page"' : ""}>Quero vender</a>
+      <a href="#/anuncios" class="lado-op compra" ${atual === "anuncios" ? 'aria-current="page"' : ""}>Quero comprar</a>
     </nav>`;
 
   async function rota() {
@@ -832,9 +832,7 @@
       ${lado("quem-compra")}
       ${caixaCep("Quem compra sucata perto de você?")}
       ${filtrosHTML(cont, ["comprador", "compradores"])}
-      <div class="cartao chamada chamada-calc"><h3>Quanto vale a sua sucata?</h3>
-        <p>Diga o material e o peso e veja na hora o preço da região. Gostou? Anuncie e os compradores perto mandam oferta.</p>
-        <div class="acoes"><a class="btn btn-primario" href="#/quanto-vale">Calcular agora</a><a class="btn btn-secundario" href="#/anunciar">Anunciar meu material</a></div></div>
+      <p class="chamada-fina">💰 <a href="#/quanto-vale">Quanto vale a sua sucata?</a> Veja na hora e <a href="#/anunciar">anuncie grátis</a>: os compradores perto mandam oferta.</p>
       ${vistaHTML()}
       <div class="duas" data-vista="${estado.vista}">
         <section>
@@ -1242,9 +1240,7 @@
       ${lado("anuncios")}
       ${caixaCep("Que sucata está à venda perto de você?")}
       ${filtrosHTML(cont, ["anúncio", "anúncios"])}
-      <div class="cartao chamada"><h3>Você compra sucata? Anuncie o que procura</h3>
-        <p>Quem vende perto vê o seu anúncio de compra e chama você no WhatsApp.</p>
-        <div class="acoes"><a class="btn btn-secundario" href="#/anunciar-compra">Anunciar que compro</a></div></div>
+      <p class="chamada-fina">Você compra sucata? <a href="#/anunciar-compra">Anuncie o que procura</a> e quem vende perto chama você.</p>
       ${vistaHTML()}
       <div class="duas" data-vista="${estado.vista}">
         <section>

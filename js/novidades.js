@@ -1,6 +1,14 @@
 // Sucata Livre · o que mudou em cada versão (aparece depois que a pessoa clica em Atualizar).
 window.NOVIDADES = [
   {
+    versao: "2026-11-02-12",
+    data: "02/11/2026",
+    itens: [
+      "Topo mais enxuto: os anúncios aparecem logo na primeira tela.",
+      "Sua localização numa linha só, com o botão Trocar; a caixa do CEP só abre quando você precisa.",
+    ],
+  },
+  {
     versao: "2026-11-02-11",
     data: "02/11/2026",
     itens: [
