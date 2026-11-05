@@ -1,6 +1,11 @@
 // Sucata Livre · o que mudou em cada versão (aparece depois que a pessoa clica em Atualizar).
 window.NOVIDADES = [
   {
+    versao: "2026-11-05-bm",
+    data: "05/11/2026",
+    itens: ["Mercado lá fora atualizado com a média de outubro de 2026: alumínio -6,8%, cobre 0,2% no mês. Fonte: Banco Mundial."],
+  },
+  {
     versao: "2026-11-02-24",
     data: "02/11/2026",
     itens: ["O Sucata Livre agora mostra que é um produto Capacity Case, no rodapé da página de entrada."],
