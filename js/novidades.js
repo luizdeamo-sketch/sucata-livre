@@ -1,6 +1,15 @@
 // Sucata Livre · o que mudou em cada versão (aparece depois que a pessoa clica em Atualizar).
 window.NOVIDADES = [
   {
+    versao: "2026-11-05-1",
+    data: "05/11/2026",
+    itens: [
+      "Agora também Resíduo e Madeira: óleo de cozinha, óleo lubrificante, vidro, tecido, pneu, resíduo da indústria, pallet, serragem, lenha e poda.",
+      "Cada material com regra mostra um aviso antes de negociar, como o óleo lubrificante e a lenha, que só pode ser de reflorestamento.",
+      "Comprador de resíduo: informe a sua licença ambiental em Minha empresa. Sem ela, não dá para mandar oferta em óleo lubrificante, pneu e resíduo da indústria.",
+    ],
+  },
+  {
     versao: "2026-11-05-bm",
     data: "05/11/2026",
     itens: ["Mercado lá fora atualizado com a média de outubro de 2026: alumínio -6,8%, cobre 0,2% no mês. Fonte: Banco Mundial."],

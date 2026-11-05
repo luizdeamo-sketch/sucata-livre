@@ -174,6 +174,11 @@
   };
   // selo do material: símbolo químico do metal ou código de reciclagem (no lugar do emoji)
   const selo = (id) => { const m = MAT()[id]; return m ? `<span class="cod ${esc(m.selo_classe ?? "")}" title="${esc(m.nome)}"><b>${esc(m.selo ?? "?")}</b><small>${esc(m.selo_sub ?? "")}</small></span>` : ""; };
+  // avisos do material (resíduo que exige licença, lenha só de reflorestamento, poda): aparecem ao anunciar e no anúncio
+  const avisosItens = (ids) => {
+    const M = MAT(), av = [...new Set((ids ?? []).map(Number))].map((id) => M[id]).filter((m) => m?.aviso);
+    return av.length ? `<div class="cartao aviso-material"><h3>Antes de negociar</h3><ul>${av.map((m) => `<li><b>${esc(m.nome)}:</b> ${esc(m.aviso)}</li>`).join("")}</ul></div>` : "";
+  };
   const selosItens = (itens) => `<span class="cods">${(itens ?? []).slice(0, 3).map((i) => selo(i.material_id)).join("")}</span>`;
   const totalKg = (itens) => (itens ?? []).reduce((s, i) => s + Number(i.peso_kg), 0);
   // foto realista de cada material (js/fotos-materiais.js, fotos de licença livre com crédito): entra quando o anúncio
@@ -363,6 +368,10 @@
     201: ["ferro", "ferragem", "sucata", "aco", "lataria"], 202: ["fundido", "ferro fundido"], 301: ["papelao", "caixa", "caixas"], 302: ["papel branco", "papel", "arquivo", "sulfite"],
     303: ["jornal", "revista", "papel misto", "papel"], 401: ["pet", "garrafa", "garrafas", "garrafa pet"], 402: ["pead", "frasco", "galao", "bombona", "plastico duro"],
     403: ["sacola", "sacolinha", "filme", "plastico mole", "plastico"],
+    501: ["oleo", "oleo de cozinha", "oleo usado", "residuo"], 502: ["oleo lubrificante", "oleo de motor", "oleo queimado", "lubrificante", "residuo"],
+    503: ["vidro", "garrafa de vidro", "caco"], 504: ["tecido", "retalho", "pano", "malha"], 505: ["pneu", "pneus", "borracha"],
+    506: ["residuo", "residuos", "industria", "lodo", "borra"], 601: ["pallet", "palete", "caixa de madeira", "madeira"],
+    602: ["serragem", "retalho de madeira", "cavaco", "madeira"], 603: ["lenha", "eucalipto", "pinus", "madeira"], 604: ["poda", "galho", "arvore", "madeira"],
   };
   function materiaisDaBusca(texto) {
     const t = semAcento(texto); if (!t) return [];
@@ -713,11 +722,13 @@
   const CATEGORIAS = [
     ["Latinha", [101], 101], ["Alumínio", [102, 103], 102], ["Cobre", [104], 104], ["Bronze e latão", [105], 105], ["Ferro", [201, 202], 201],
     ["Papelão", [301], 301], ["Papel", [302, 303], 302], ["PET", [401], 401], ["Plástico", [402, 403], 403],
+    ["Resíduo", [501, 502, 503, 504, 505, 506], 501], ["Madeira", [601, 602, 603, 604], 601],
   ];
   const BANNERS = [
     { titulo: "Quanto vale a sua sucata?", texto: "Escolha o material, diga o peso e veja o preço da região na hora.", botao: "Calcular agora", link: "#/quanto-vale", foto: 104 },
     { titulo: "Anuncie grátis. Receba ofertas.", texto: "Sem pôr preço: os compradores perto mandam oferta e você escolhe a melhor.", botao: "Anunciar minha sucata", link: "#/anunciar", foto: 101 },
     { titulo: "Preço da sucata hoje", texto: "Latinha, cobre, ferro, papelão e PET perto de você, mais o dólar do dia. Grátis.", botao: "Ver o preço", link: "#/preco-do-metal", foto: 102 },
+    { titulo: "Empresa com resíduo ou madeira?", texto: "Óleo, vidro, pneu, pallet, poda: anuncie e quem compra perto retira e dá o destino certo.", botao: "Anunciar resíduo", link: "#/anunciar", foto: 301 },
     { titulo: "Tem ferro-velho ou depósito?", texto: "Veja o material à venda perto e anuncie o que você compra.", botao: "Ver material à venda", link: "#/anuncios", foto: 201 },
   ];
   let rodaBanner = null;
@@ -944,7 +955,7 @@
   TELAS.apresentacao = async (el) => {
     el.innerHTML = `
       <h1 class="chamada-marca">Quem junta,<br>vende.</h1>
-      <p style="font-size:1.2rem;line-height:1.5;max-width:36em">Anuncie sua sucata sem pôr preço. Os ferros-velhos e recicladoras perto de você mandam uma oferta que <b>só você vê</b>, e você aceita a melhor.</p>
+      <p style="font-size:1.2rem;line-height:1.5;max-width:36em">Anuncie sua sucata, resíduo ou madeira sem pôr preço. Os ferros-velhos e recicladoras perto de você mandam uma oferta que <b>só você vê</b>, e você aceita a melhor.</p>
       <div class="passos">
         <div class="passo"><span class="num-placa" aria-hidden="true">1</span><h3>Anuncie o que juntou</h3><p class="suave">Toque nos materiais, diga o peso aproximado e tire uma foto. Leva um minuto.</p></div>
         <div class="passo"><span class="num-placa" aria-hidden="true">2</span><h3>Receba ofertas de quem está perto</h3><p class="suave">Cada comprador manda a oferta só para você. Nenhum vê a oferta do outro, e você vê se está acima ou abaixo do preço da região.</p></div>
@@ -1256,6 +1267,7 @@
               <button type="button" class="chip" data-risco="sim" aria-pressed="${R.risco === true}">Tem, sim</button></div>
             ${R.risco ? `<p style="margin-top:12px"><label class="check"><input type="checkbox" id="declaro" ${R.declarou ? "checked" : ""}>
               <span>Declaro que o material tem origem lícita. O comprador vê que o anúncio tem declaração de origem.</span></label></p>` : ""}</div>` : ""}
+          ${avisosItens(Object.keys(R.itens))}
           <div class="acoes"><button type="button" class="btn btn-primario" data-ir="2">Continuar</button></div>`;
       } else if (R.passo === 2) {
         const opc = (campo, valor, rotulo) => `<button type="button" class="chip" data-car="${campo}" data-v="${valor}" aria-pressed="${R[campo] === valor}">${rotulo}</button>`;
@@ -1444,6 +1456,29 @@
   };
 
   // ── quem compra ──────────────────────────────────────────────────────────
+  // licença ambiental: só com ela o comprador manda oferta em óleo lubrificante, pneu e resíduo da indústria
+  function licencaHTML(c) {
+    const ok = c.licenca_numero && c.licenca_validade && c.licenca_validade >= new Date().toISOString().slice(0, 10);
+    return `<div class="cartao" id="licenca">
+      <h2 style="margin-top:0">Licença ambiental</h2>
+      <p class="suave">Só quem tem licença manda oferta em óleo lubrificante, pneu e resíduo da indústria. A equipe do Sucata Livre confere.</p>
+      ${ok ? `<p><span class="etiqueta ok">Licença informada</span> ${esc(c.licenca_orgao ?? "")} nº ${esc(c.licenca_numero)} · vale até ${new Date(c.licenca_validade + "T12:00").toLocaleDateString("pt-BR")}${c.licenca_conferida_em ? " · conferida" : " · a equipe ainda vai conferir"}</p>` : ""}
+      <div class="campos">
+        <div><label for="lic-num">Número da licença</label><input type="text" id="lic-num" maxlength="60" value="${esc(c.licenca_numero ?? "")}"></div>
+        <div><label for="lic-org">Quem emitiu</label><input type="text" id="lic-org" maxlength="60" placeholder="Ex.: CETESB" value="${esc(c.licenca_orgao ?? "")}"></div>
+        <div><label for="lic-val">Vale até</label><input type="date" id="lic-val" value="${esc(c.licenca_validade ?? "")}"></div>
+      </div>
+      <div class="acoes"><button type="button" class="btn btn-secundario" id="salvar-licenca">Salvar licença</button></div>
+    </div>`;
+  }
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest("#salvar-licenca"); if (!b) return;
+    ocupado(b, async () => {
+      const { error } = await sb.rpc("slv_salvar_licenca", { p_numero: $("#lic-num").value, p_orgao: $("#lic-org").value, p_validade: $("#lic-val").value || null });
+      if (error) throw error;
+      await carregarPerfil(); avisar("Licença salva. A equipe confere e você já pode mandar oferta em resíduo.", "ok"); rota();
+    });
+  });
   TELAS["cad-comprador"] = async (el) => {
     const c = estado.comprador;
     const h = c?.horario ?? {};
@@ -1470,7 +1505,8 @@
         <p style="margin-top:16px"><label class="check"><input type="checkbox" id="coleta" ${c?.faz_coleta ? "checked" : ""}><span>Busco material no local de quem vende</span></label></p>
         ${c ? "" : `<p><label class="check"><input type="checkbox" id="termo"><span>Aceito o termo de uso e me comprometo a pagar a oferta que fizer, conferindo o peso na balança.</span></label></p>`}
         <div class="acoes"><button class="btn btn-primario" id="salvar">${c ? "Salvar" : "Criar cadastro"}</button></div>
-      </div>`;
+      </div>
+      ${c ? licencaHTML(c) : ""}`;
     const cnpj = $("#cnpj", el), tel = $("#telc", el);
     cnpj.addEventListener("input", () => (cnpj.value = fmtCNPJ(cnpj.value)));
     tel.addEventListener("input", () => (tel.value = fmtTel(tel.value)));
@@ -1650,6 +1686,7 @@
         ${a.observacao ? `<p class="obs-anuncio">“${esc(a.observacao)}”</p>` : ""}
         <div class="estimativa">${textoEstimativa(a.itens)}</div>
         ${a.tem_item_risco ? `<div class="cartao alerta"><p>Quem vende marcou material de risco (fio, cabo ou peça de ferro) e declarou a origem. Confira antes de comprar.</p></div>` : ""}
+        ${avisosItens((a.itens ?? []).map((i) => i.material_id))}
         ${a.exemplo ? `<div class="cartao alerta"><h3>Anúncio de exemplo</h3><p>Ele mostra como fica um anúncio no Sucata Livre e não recebe oferta. Os anúncios de verdade aparecem sem esta marca.</p></div>
         <div class="acoes"><button type="button" class="btn btn-secundario fechar">Fechar</button></div>`
         : podeOfertar ? `<h3>Sua oferta</h3>
