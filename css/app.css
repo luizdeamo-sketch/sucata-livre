@@ -787,3 +787,15 @@ body { background: var(--fundo); }
 .faq details { background: #fff; border: 1px solid #dcded7; border-radius: 12px; padding: 12px 14px; }
 .faq summary { font-weight: 800; cursor: pointer; }
 .faq p { margin: 8px 0 0; }
+
+/* ── 21/11: topo das listas em duas linhas curtas (crítica do Daniel) ── */
+.filtro-linha { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.local-lista { font-weight: 800; color: var(--texto); text-decoration: none; padding: 4px 0; }
+.raio-sel { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; color: var(--suave); margin: 0; }
+.raio-sel select { width: auto; min-height: 38px; padding: 4px 10px; border-radius: 999px; font-weight: 800; }
+.pilulas { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.pilulas::-webkit-scrollbar { display: none; }
+.pilula { flex: none; border: 1px solid #c9cbc4; background: #fff; border-radius: 999px; padding: 8px 14px; font: 800 .92rem/1 var(--f-texto); color: var(--texto); cursor: pointer; }
+.pilula small { font-weight: 700; color: var(--suave); margin-left: 2px; }
+.pilula[aria-pressed=true] { background: var(--grafite, #14171c); border-color: var(--grafite, #14171c); color: #fff; }
+.pilula[aria-pressed=true] small { color: #c9ccd1; }

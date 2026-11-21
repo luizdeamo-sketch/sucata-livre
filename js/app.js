@@ -176,7 +176,8 @@
   // 21/11: sem código (Al, Cu, PEAD) na tela de quem vende: a foto do material, ou o desenho dele quando não há foto
   const selo = (id) => { const m = MAT()[id]; if (!m) return ""; const f = fotoMaterial(id);
     return f ? `<span class="cod foto" title="${esc(m.nome)}"><img src="${esc(f)}" alt="" loading="lazy"></span>`
-      : `<span class="cod emoji ${esc(m.selo_classe ?? "")}" title="${esc(m.nome)}" aria-hidden="true">${esc(m.icone ?? "♻️")}</span>`; };
+      : `<span class="cod emoji ${esc(m.selo_classe ?? "")}" title="${esc(m.nome)}" aria-hidden="true">${esc(ICONE_MAT[id] ?? m.icone ?? "♻️")}</span>`; };
+  const ICONE_MAT = { 105: "🥉" }; // o 🔔 do bronze confundia com o sino dos avisos
   // avisos do material (resíduo que exige licença, lenha só de reflorestamento, poda): aparecem ao anunciar e no anúncio
   const avisosItens = (ids) => {
     const M = MAT(), av = [...new Set((ids ?? []).map(Number))].map((id) => M[id]).filter((m) => m?.aviso);
@@ -330,21 +331,22 @@
       await localDoAparelho();
       const tela = location.hash.replace(/^#\/?/, "").split("?")[0] || telaInicial();
       if (tela === "anuncios" || tela === "quem-compra") rota();
-    } catch (e) { avisar(e.message, "info"); }
+    } catch { /* automático: se não der, fica a região de lançamento, sem aviso (o 📍 do topo troca) */ }
   }
 
   // filtros de distância e material das listas
   const RAIOS = [5, 10, 25, 50];
   // categorias grandes com o selo e quantos há em cada uma (a lista vem inteira e o filtro é feito aqui)
   function filtrosHTML(cont, rotulo) {
-    const n = (x) => `${x} ${x === 1 ? rotulo[0] : rotulo[1]}`;
-    const primeiro = (fam) => estado.materiais.find((m) => m.familia_id === fam)?.id;
+    // 21/11: uma linha só, no molde da B2Blue: categorias que têm algo e a distância num seletor pequeno
+    const onde = estado.local?.padrao ? ondeRegiao() : (estado.local?.bairro || estado.local?.cidade || cidadeCentro());
+    const fams = estado.familias.filter((f) => !cont || cont[f.id] || estado.familiaFiltro === f.id);
     return `<div class="filtros">
-      <div class="chips" role="group" aria-label="Distância"><span class="rot">Até</span>${RAIOS.map((r) => `<button type="button" class="chip" data-raio="${r}" aria-pressed="${estado.raio === r}">${r} km</button>`).join("")}</div>
-      <div class="categorias" role="group" aria-label="Material">
-        <button type="button" class="categoria" data-fam="" aria-pressed="${estado.familiaFiltro == null}"><span class="cat-tudo" aria-hidden="true">Tudo</span><span><b>Tudo</b><small>${n(cont?.total ?? 0)}</small></span></button>
-        ${estado.familias.map((f) => `<button type="button" class="categoria" data-fam="${f.id}" aria-pressed="${estado.familiaFiltro === f.id}" ${cont && !cont[f.id] ? "data-vazia" : ""}>
-          ${primeiro(f.id) ? selo(primeiro(f.id)) : ""}<span><b>${esc(f.nome)}</b><small>${n(cont?.[f.id] ?? 0)}</small></span></button>`).join("")}
+      <div class="filtro-linha"><button type="button" class="btn-link local-lista" id="local-lista">📍 ${esc(onde)}</button>
+        <label class="raio-sel">até <select id="raio-sel" aria-label="Distância">${RAIOS.map((r) => `<option value="${r}" ${estado.raio === r ? "selected" : ""}>${r} km</option>`).join("")}</select></label></div>
+      <div class="pilulas" role="group" aria-label="Material">
+        <button type="button" class="pilula" data-fam="" aria-pressed="${estado.familiaFiltro == null}">Tudo <small>${cont?.total ?? 0}</small></button>
+        ${fams.map((f) => `<button type="button" class="pilula" data-fam="${f.id}" aria-pressed="${estado.familiaFiltro === f.id}">${esc(f.nome)} <small>${cont?.[f.id] ?? 0}</small></button>`).join("")}
       </div>
     </div>`;
   }
@@ -415,6 +417,7 @@
       <button type="button" class="chip" data-vista="lista" aria-pressed="${estado.vista === "lista"}">☰ Lista</button>
       <button type="button" class="chip" data-vista="mapa" aria-pressed="${estado.vista === "mapa"}">🗺 Mapa</button></div>`;
   function ligarFiltros(el) {
+    $("#raio-sel", el)?.addEventListener("change", (e) => { estado.raio = Number(e.target.value); rota(); });
     el.addEventListener("click", (e) => {
       if (e.target.closest("#limpar-busca")) { estado.busca = null; $("#busca-texto").value = ""; rota(); return; }
       const v = e.target.closest("[data-vista]");
@@ -426,6 +429,7 @@
         if (estado.vista === "mapa") setTimeout(() => { if (!mapaAtual) return; mapaAtual.invalidateSize(); if (mapaAtual.__limites) mapaAtual.fitBounds(mapaAtual.__limites, { padding: [30, 30], maxZoom: 15 }); }, 60);
         return;
       }
+      if (e.target.closest("#local-lista")) { abrirTrocaLocal(); return; }
       const b = e.target.closest(".filtros [data-raio], .filtros [data-fam]"); if (!b) return;
       if (b.dataset.raio) estado.raio = Number(b.dataset.raio);
       else estado.familiaFiltro = b.dataset.fam ? Number(b.dataset.fam) : null;
@@ -522,7 +526,7 @@
 
   // anúncios de exemplo (enquanto a vitrine não tem anúncios reais): um aviso só, no alto da lista
   const avisoExemplos = (lista) => (lista ?? []).some((x) => x.exemplo)
-    ? `<p class="aviso-exemplo">Os anúncios com a marca <span class="etiqueta exemplo">Exemplo</span> mostram como a vitrine funciona e não fazem negócio. Eles saem quando chegarem os anúncios de verdade.</p>` : "";
+    ? `<p class="aviso-exemplo">Por enquanto são <span class="etiqueta exemplo">Exemplo</span>: mostram como funciona e saem quando chegarem os de verdade.</p>` : "";
   const nomesMateriais = (ids) => { const M = MAT(); const n = (ids ?? []).map((id) => M[id]?.nome.toLowerCase()).filter(Boolean); return n.length > 1 ? `${n.slice(0, -1).join(", ")} e ${n.at(-1)}` : n[0] ?? "—"; };
 
   // ── menu e navegação ─────────────────────────────────────────────────────
@@ -730,7 +734,7 @@
     ["Resíduo", [501, 502, 503, 504, 505, 506], 501], ["Madeira", [601, 602, 603, 604], 601],
   ];
   // ícone do material para quem não conhece código: a foto do material ou o desenho dele
-  const icoMat = (id) => { const f = fotoMaterial(id); return f ? `<span class="ico-mat"><img src="${esc(f)}" alt="" loading="lazy"></span>` : `<span class="ico-mat emoji" aria-hidden="true">${esc(MAT()[id]?.icone ?? "♻️")}</span>`; };
+  const icoMat = (id) => { const f = fotoMaterial(id); return f ? `<span class="ico-mat"><img src="${esc(f)}" alt="" loading="lazy"></span>` : `<span class="ico-mat emoji" aria-hidden="true">${esc(ICONE_MAT[id] ?? MAT()[id]?.icone ?? "♻️")}</span>`; };
   TELAS.inicio = async (el) => {
     await carregarCatalogo();
     const l = estado.local;
@@ -740,7 +744,7 @@
     ]);
     const anuncios = an.data ?? [], compradores = pr.data ?? [];
     const onde = l.padrao ? ondeRegiao() : (l.bairro || l.cidade);
-    const fotoCat = (id) => fotoMaterial(id) ? `<img src="${esc(fotoMaterial(id))}" alt="" loading="lazy">` : `<span class="emoji" aria-hidden="true">${esc(MAT()[id]?.icone ?? "♻️")}</span>`;
+    const fotoCat = (id) => fotoMaterial(id) ? `<img src="${esc(fotoMaterial(id))}" alt="" loading="lazy">` : `<span class="emoji" aria-hidden="true">${esc(ICONE_MAT[id] ?? MAT()[id]?.icone ?? "♻️")}</span>`;
     const miniAnuncio = (a) => {
       const mp = materialPrincipal(a.itens), f = faixaItens(a.itens);
       return `<a class="mini" href="#/anuncios?a=${a.id}"><span class="mini-foto">${fotoMaterial(mp) ? `<img src="${esc(fotoMaterial(mp))}" alt="" loading="lazy">` : icoMat(mp)}
@@ -1209,10 +1213,7 @@
     }
     const { cont, lista } = contarEFiltrar(todos);
     el.innerHTML = `
-      <div class="painel-topo">${lado("quem-compra")}
-      ${caixaCep("Quem compra sucata perto de você?")}
-      ${filtrosHTML(cont, ["comprador", "compradores"])}${buscaAtivaHTML()}
-      <p class="chamada-fina">💰 <a href="#/quanto-vale">Quanto vale a sua sucata?</a> Veja na hora e <a href="#/anunciar">anuncie grátis</a>: os compradores perto mandam oferta.</p></div>
+      <div class="painel-topo">${filtrosHTML(cont, ["comprador", "compradores"])}${buscaAtivaHTML()}</div>
       ${vistaHTML()}
       <div class="duas" data-vista="${estado.vista}">
         <section>
@@ -1237,7 +1238,7 @@
         ${l && lista.length ? `<section><h2>No mapa</h2>${mapaHTML(lista, "m-comp")}
           <p class="legenda"><span class="ponto m-eu-l"></span>você <span class="ponto m-comp-l"></span>quem compra (número = lista)</p>${tabelaReferencia()}</section>` : l ? `<section>${tabelaReferencia()}</section>` : ""}
       </div>`;
-    ligarCaixaCep(el);
+    if ($("#busca-cep", el)) ligarCaixaCep(el);
     ligarFiltros(el);
     preencherRep(el);
     el.addEventListener("click", (e) => {
@@ -1653,10 +1654,7 @@
     const fotos = await urlsFotos(lista.map((a) => a.fotos?.[0]).filter(Boolean));
     let fi = 0; lista.forEach((a) => { if (a.fotos?.[0]) a._foto = fotos[fi++]; });
     el.innerHTML = `
-      <div class="painel-topo">${lado("anuncios")}
-      ${caixaCep("Que sucata está à venda perto de você?")}
-      ${filtrosHTML(cont, ["anúncio", "anúncios"])}${buscaAtivaHTML()}
-      <p class="chamada-fina">Você compra sucata? <a href="#/anunciar-compra">Anuncie o que procura</a> e quem vende perto chama você.</p></div>
+      <div class="painel-topo">${filtrosHTML(cont, ["anúncio", "anúncios"])}${buscaAtivaHTML()}</div>
       ${vistaHTML()}
       <div class="duas" data-vista="${estado.vista}">
         <section>
@@ -1681,7 +1679,7 @@
           ${podeOfertar ? "" : `<p class="suave" style="font-size:.9rem;margin-top:4px">O círculo em volta do número é a área aproximada. O endereço só aparece quando o negócio é fechado.</p>`}${tabelaReferencia()}</section>` : ""}
       </div>
       <div id="detalhe"></div>`;
-    ligarCaixaCep(el);
+    if ($("#busca-cep", el)) ligarCaixaCep(el);
     ligarFiltros(el);
     preencherRep(el);
     el.addEventListener("click", (e) => {

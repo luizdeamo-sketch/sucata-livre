@@ -1,6 +1,11 @@
 // Sucata Livre · o que mudou em cada versão (aparece depois que a pessoa clica em Atualizar).
 window.NOVIDADES = [
   {
+    versao: "2026-11-21-4",
+    data: "21/11/2026",
+    itens: ["Listas mais limpas: o lugar e a distância numa linha, os materiais numa faixa só, e os anúncios aparecem logo.", "Sem aviso de localização ao abrir o site: o 📍 do topo troca o lugar quando você quiser."],
+  },
+  {
     versao: "2026-11-21-3",
     data: "21/11/2026",
     itens: ["Política de Privacidade e Termo de Uso publicados, com link no cadastro e no rodapé."],
