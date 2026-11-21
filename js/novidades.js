@@ -1,6 +1,11 @@
 // Sucata Livre · o que mudou em cada versão (aparece depois que a pessoa clica em Atualizar).
 window.NOVIDADES = [
   {
+    versao: "2026-11-21-3",
+    data: "21/11/2026",
+    itens: ["Política de Privacidade e Termo de Uso publicados, com link no cadastro e no rodapé."],
+  },
+  {
     versao: "2026-11-21-2",
     data: "21/11/2026",
     itens: [

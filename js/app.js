@@ -543,7 +543,7 @@
     $("#menu").innerHTML = `<div class="menu-cab"><b>${esc(estado.eu?.nome ?? "Minha conta")}</b><button type="button" class="menu-fechar" aria-label="Fechar">✕</button></div>`
       + grupo(estado.comprador && !estado.vendedor ? "Minha empresa" : "Minha conta", conta)
       + (logado ? `<button type="button" id="btn-sair"><span class="mi"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONE.sair}</svg></span>Sair</button>` : "")
-      + `<p class="menu-rodape">Quem junta, vende.${C.demo ? " · Versão de teste" : ""}<br>Um produto Capacity Case</p>`;
+      + `<p class="menu-rodape">Quem junta, vende.${C.demo ? " · Versão de teste" : ""}<br>Um produto Capacity Case<br><a href="termos.html">Termo de uso</a> · <a href="privacidade.html">Privacidade</a></p>`;
     $("#btn-sair")?.addEventListener("click", async () => { await sb.auth.signOut({ scope: "local" }); location.hash = "#/"; location.reload(); });
     const avisos = (estado.respostas ?? 0) + (estado.paraAvaliar ?? 0);
     $("#topo-nome").innerHTML = logado
@@ -782,7 +782,7 @@
         ${compradores.length ? `<div class="prateleira redondos">${compradores.slice(0, 8).map(redondo).join("")}</div>` : `<div class="cartao vazio">Ainda sem comprador anunciando perto.</div>`}
       </section>
       <p class="rodape-links"><a href="#/anunciar">Empresa com resíduo ou madeira? Anuncie aqui</a> · <a href="#/anuncios">Tem ferro-velho? Veja o material à venda</a></p>
-      <p class="assinatura">Sucata Livre é um produto <a href="https://capacitycase.com.br" target="_blank" rel="noopener">Capacity Case</a></p>`;
+      <p class="assinatura">Sucata Livre é um produto <a href="https://capacitycase.com.br" target="_blank" rel="noopener">Capacity Case</a> · <a href="termos.html">Termo de uso</a> · <a href="privacidade.html">Privacidade</a></p>`;
     el.addEventListener("click", (e) => {
       const c = e.target.closest("[data-cat]");
       if (c) { const [n, ids] = CATEGORIAS[Number(c.dataset.cat)]; buscar(n, ids); }
@@ -1050,7 +1050,7 @@
             <div><label for="c-doc">CPF ou CNPJ</label><input type="text" id="c-doc" inputmode="numeric" placeholder="000.000.000-00" value="${esc(doc0 ? fmtDoc(doc0) : "")}" required>
               <span class="dica">Só a equipe do Sucata Livre vê. Com CNPJ, você também pode comprar.</span></div>
           </div>
-          <p style="margin-top:16px"><label class="check"><input type="checkbox" id="c-termo"><span>Aceito o termo de uso e declaro que só negocio material de origem lícita.</span></label></p>
+          <p style="margin-top:16px"><label class="check"><input type="checkbox" id="c-termo"><span>Aceito o <a href="termos.html" target="_blank" rel="noopener">termo de uso</a> e a <a href="privacidade.html" target="_blank" rel="noopener">política de privacidade</a>, e declaro que só negocio material de origem lícita.</span></label></p>
           <div class="acoes"><button type="submit" class="btn btn-primario">${estado.eu ? "Salvar" : "Criar meu cadastro"}</button></div>
         </form>
       </div>`;
@@ -1151,7 +1151,7 @@
           <input type="text" id="cep" inputmode="numeric" placeholder="00000-000" value="${esc(v ? fmtCEP(v.cep) : "")}" ${v ? "disabled" : ""}>
           <span class="dica" id="cep-info">${v ? esc(PRECISAO[v.precisao_geo] ?? "") : "Não sabe? Procure “CEP + nome da sua rua” na internet."}</span></div></div>
         ${v ? "" : `<p style="margin-top:18px"><label class="check"><input type="checkbox" id="termo">
-          <span>Aceito o termo de uso e declaro que só vendo material de origem lícita.</span></label></p>`}
+          <span>Aceito o <a href="termos.html" target="_blank" rel="noopener">termo de uso</a> e a <a href="privacidade.html" target="_blank" rel="noopener">política de privacidade</a>, e declaro que só vendo material de origem lícita.</span></label></p>`}
         <div class="acoes"><button class="btn btn-primario" id="salvar">${v ? "Salvar" : "Criar meu cadastro"}</button></div>
       </div>`;
     const marcar = (valor) => $$(`#tipo .chip`, el).forEach((c) => c.setAttribute("aria-pressed", String(c.dataset.v === valor)));
@@ -1527,7 +1527,7 @@
           <div><label>Sábado <small>(deixe vazio se fecha)</small></label><div class="chips"><input type="time" id="sa-a" value="${esc(h.sab?.abre ?? "08:00")}"><input type="time" id="sa-f" value="${esc(h.sab?.fecha ?? "12:00")}"></div></div>
         </div>
         <p style="margin-top:16px"><label class="check"><input type="checkbox" id="coleta" ${c?.faz_coleta ? "checked" : ""}><span>Busco material no local de quem vende</span></label></p>
-        ${c ? "" : `<p><label class="check"><input type="checkbox" id="termo"><span>Aceito o termo de uso e me comprometo a pagar a oferta que fizer, conferindo o peso na balança.</span></label></p>`}
+        ${c ? "" : `<p><label class="check"><input type="checkbox" id="termo"><span>Aceito o <a href="termos.html" target="_blank" rel="noopener">termo de uso</a> e a <a href="privacidade.html" target="_blank" rel="noopener">política de privacidade</a>, e me comprometo a pagar a oferta que fizer, conferindo o peso na balança.</span></label></p>`}
         <div class="acoes"><button class="btn btn-primario" id="salvar">${c ? "Salvar" : "Criar cadastro"}</button></div>
       </div>
       ${c ? licencaHTML(c) : ""}`;
