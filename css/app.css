@@ -712,3 +712,40 @@ body { background: var(--fundo); }
 .aviso-material { border-left: 5px solid #b4461a; }
 .aviso-material h3 { margin: 0 0 6px; }
 .aviso-material ul { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; }
+
+/* ── 21/11: versão enxuta para o sucateirinho (crítica do Daniel) ── */
+.cod.foto { padding: 0; overflow: hidden; border-radius: 50%; width: 2.6em; min-width: 2.6em; background: #fff; box-shadow: inset 0 0 0 1px #d3d5ce; }
+.cod.foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cod.emoji { border-radius: 50%; width: 2.6em; padding: 0; font-size: 1.15em; }
+.ico-mat { flex: none; width: 44px; height: 44px; border-radius: 50%; overflow: hidden; display: grid; place-items: center; background: #fff; box-shadow: inset 0 0 0 1px #d3d5ce; font-size: 1.4rem; }
+.ico-mat img { width: 100%; height: 100%; object-fit: cover; }
+.cat-foto .emoji { font-size: 2rem; }
+.cat-foto.mais { font: 800 2.2rem/1 var(--f-titulo); color: var(--texto); background: var(--marca-claro); }
+.cat { text-decoration: none; }
+.chamada { background: var(--grafite, #14171c); color: #fff; border-radius: 18px; padding: 20px; margin-bottom: 18px; display: grid; gap: 8px; }
+.chamada-marca { margin: 0; font: 800 .72rem/1 var(--f-texto); letter-spacing: .14em; text-transform: uppercase; color: var(--marca); }
+.chamada h1 { margin: 0; color: #fff; font: 900 clamp(1.6rem, 4.4vw, 2.6rem)/1.05 var(--f-titulo); text-transform: uppercase; }
+.chamada-passos { margin: 0; color: #c9ccd1; }
+.chamada-botoes { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; }
+.chamada .btn-secundario { background: transparent; color: #fff; border-color: #6b7078; }
+.btn-grande { font-size: 1.15rem; padding: 14px 22px; }
+@media (max-width: 760px) { .chamada-botoes .btn-grande { flex: 1 1 100%; } .chamada-botoes .btn-secundario { flex: 1 1 100%; } }
+.cats { justify-content: flex-start; }
+.preco-card small { color: var(--suave); font-size: .78rem; margin-left: 4px; }
+.rodape-links { text-align: center; font-size: .92rem; margin: 22px 0 4px; }
+.rodape-links a { color: var(--texto); }
+.principais { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); margin: 12px 0 18px; }
+.principal { position: relative; display: grid; grid-template-rows: 110px auto; padding: 0; overflow: hidden; border: 2px solid #d3d5ce; border-radius: 16px; background: #fff;
+  cursor: pointer; font: 800 1.1rem/1.2 var(--f-texto); color: var(--texto); text-align: center; }
+.principal img { width: 100%; height: 110px; object-fit: cover; display: block; }
+.principal > span { padding: 10px 6px; }
+.principal .mais { display: grid; place-items: center; height: 110px; font: 900 3rem/1 var(--f-titulo); background: var(--marca-claro); padding: 0; }
+.principal[aria-pressed=true] { border-color: var(--texto); box-shadow: inset 0 0 0 2px var(--texto); background: var(--marca-claro); }
+.principal[aria-pressed=true]::after { content: "✓"; position: absolute; top: 8px; right: 8px; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--marca); color: var(--sobre-marca, #14171c); font-weight: 900; }
+.principal.outro[aria-expanded=true] { border-style: dashed; }
+@media (max-width: 760px) {
+  .principais { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* no celular a barra de baixo já tem Início, Comprar, Anunciar e Vender: o menu de cima não repete */
+  .nav-topo a[data-tela=inicio], .nav-topo a[data-tela=anuncios], .nav-topo a[data-tela=quem-compra], .nav-topo a[data-tela=anunciar] { display: none; }
+}

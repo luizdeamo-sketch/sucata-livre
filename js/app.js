@@ -173,7 +173,10 @@
     return p.length > 1 ? `${p.slice(0, -1).join(", ")} e ${p.at(-1)}` : p[0] ?? "Material";
   };
   // selo do material: símbolo químico do metal ou código de reciclagem (no lugar do emoji)
-  const selo = (id) => { const m = MAT()[id]; return m ? `<span class="cod ${esc(m.selo_classe ?? "")}" title="${esc(m.nome)}"><b>${esc(m.selo ?? "?")}</b><small>${esc(m.selo_sub ?? "")}</small></span>` : ""; };
+  // 21/11: sem código (Al, Cu, PEAD) na tela de quem vende: a foto do material, ou o desenho dele quando não há foto
+  const selo = (id) => { const m = MAT()[id]; if (!m) return ""; const f = fotoMaterial(id);
+    return f ? `<span class="cod foto" title="${esc(m.nome)}"><img src="${esc(f)}" alt="" loading="lazy"></span>`
+      : `<span class="cod emoji ${esc(m.selo_classe ?? "")}" title="${esc(m.nome)}" aria-hidden="true">${esc(m.icone ?? "♻️")}</span>`; };
   // avisos do material (resíduo que exige licença, lenha só de reflorestamento, poda): aparecem ao anunciar e no anúncio
   const avisosItens = (ids) => {
     const M = MAT(), av = [...new Set((ids ?? []).map(Number))].map((id) => M[id]).filter((m) => m?.aviso);
@@ -717,21 +720,14 @@
     });
   };
 
-  // ── início: a vitrine no molde dos grandes classificados (OLX, Mercado Livre, Shopee, Viva Real, Webmotors) ──
-  // categorias redondas com foto, banner que passa sozinho e prateleiras que rolam para o lado
+  // início enxuto (pedido do Daniel e do Luiz, 21/11): uma tela, um botão grande, o que tem perto e o preço de hoje
   const CATEGORIAS = [
-    ["Latinha", [101], 101], ["Alumínio", [102, 103], 102], ["Cobre", [104], 104], ["Bronze e latão", [105], 105], ["Ferro", [201, 202], 201],
-    ["Papelão", [301], 301], ["Papel", [302, 303], 302], ["PET", [401], 401], ["Plástico", [402, 403], 403],
+    ["Latinha", [101], 101], ["Cobre e fio", [104], 104], ["Ferro", [201, 202], 201], ["Papelão", [301], 301], ["PET", [401], 401],
+    ["Alumínio", [102, 103], 102], ["Papel", [302, 303], 302], ["Plástico", [402, 403], 403], ["Bronze e latão", [105], 105],
     ["Resíduo", [501, 502, 503, 504, 505, 506], 501], ["Madeira", [601, 602, 603, 604], 601],
   ];
-  const BANNERS = [
-    { titulo: "Quanto vale a sua sucata?", texto: "Escolha o material, diga o peso e veja o preço da região na hora.", botao: "Calcular agora", link: "#/quanto-vale", foto: 104 },
-    { titulo: "Anuncie grátis. Receba ofertas.", texto: "Sem pôr preço: os compradores perto mandam oferta e você escolhe a melhor.", botao: "Anunciar minha sucata", link: "#/anunciar", foto: 101 },
-    { titulo: "Preço da sucata hoje", texto: "Latinha, cobre, ferro, papelão e PET perto de você, mais o dólar do dia. Grátis.", botao: "Ver o preço", link: "#/preco-do-metal", foto: 102 },
-    { titulo: "Empresa com resíduo ou madeira?", texto: "Óleo, vidro, pneu, pallet, poda: anuncie e quem compra perto retira e dá o destino certo.", botao: "Anunciar resíduo", link: "#/anunciar", foto: 301 },
-    { titulo: "Tem ferro-velho ou depósito?", texto: "Veja o material à venda perto e anuncie o que você compra.", botao: "Ver material à venda", link: "#/anuncios", foto: 201 },
-  ];
-  let rodaBanner = null;
+  // ícone do material para quem não conhece código: a foto do material ou o desenho dele
+  const icoMat = (id) => { const f = fotoMaterial(id); return f ? `<span class="ico-mat"><img src="${esc(f)}" alt="" loading="lazy"></span>` : `<span class="ico-mat emoji" aria-hidden="true">${esc(MAT()[id]?.icone ?? "♻️")}</span>`; };
   TELAS.inicio = async (el) => {
     await carregarCatalogo();
     const l = estado.local;
@@ -741,65 +737,50 @@
     ]);
     const anuncios = an.data ?? [], compradores = pr.data ?? [];
     const onde = l.padrao ? ondeRegiao() : (l.bairro || l.cidade);
-    const fotoCat = (id) => fotoMaterial(id) ? `<img src="${esc(fotoMaterial(id))}" alt="" loading="lazy">` : selo(id);
+    const fotoCat = (id) => fotoMaterial(id) ? `<img src="${esc(fotoMaterial(id))}" alt="" loading="lazy">` : `<span class="emoji" aria-hidden="true">${esc(MAT()[id]?.icone ?? "♻️")}</span>`;
     const miniAnuncio = (a) => {
       const mp = materialPrincipal(a.itens), f = faixaItens(a.itens);
-      return `<a class="mini" href="#/anuncios?a=${a.id}"><span class="mini-foto">${fotoMaterial(mp) ? `<img src="${esc(fotoMaterial(mp))}" alt="" loading="lazy">` : selosItens(a.itens)}
+      return `<a class="mini" href="#/anuncios?a=${a.id}"><span class="mini-foto">${fotoMaterial(mp) ? `<img src="${esc(fotoMaterial(mp))}" alt="" loading="lazy">` : icoMat(mp)}
           ${a.exemplo ? `<span class="etiqueta exemplo">Exemplo</span>` : ""}<span class="dist">≈ ${km(a.distancia_km)} km</span></span>
         <span class="mini-txt"><b>${esc(tituloItens(a.itens))}</b><small>${esc([a.bairro, a.cidade].filter(Boolean).join(", "))}</small>
           ${f ? `<span class="mini-valor">${reais0(f[0])} a ${reais0(f[1])}</span><small>na região</small>` : ""}</span></a>`;
     };
     const redondo = (c) => `<a class="redondo" href="#/comprador?id=${esc(c.comprador_id)}"><span class="avatar">${esc(c.nome.replace(/^Exemplo · /, "").split(" ").filter((p) => p.length > 2).slice(0, 2).map((p) => p[0]).join("").toUpperCase())}</span>
         <b>${esc(c.nome)}</b><small>≈ ${km(c.distancia_km)} km · ${esc(c.cidade ?? "")}</small></a>`;
-    const ref = Object.values(estado.ref ?? {});
+    const ref = BOLETIM_MATERIAIS.map((id) => estado.ref?.[id]).filter(Boolean).slice(0, 5);
+    const nCat = matchMedia("(max-width: 760px)").matches ? 5 : 9;
     el.innerHTML = `
-      <section class="banners" aria-label="Destaques">
-        <div class="banners-trilho" id="banners">${BANNERS.map((b, i) => `<article class="banner" aria-roledescription="destaque" aria-label="${i + 1} de ${BANNERS.length}">
-          <div class="banner-txt"><p class="banner-marca">Quem junta, vende.</p><h2>${b.titulo}</h2><p>${b.texto}</p><a class="btn btn-primario" href="${b.link}">${b.botao}</a></div>
-          ${fotoMaterial(b.foto) ? `<img class="banner-foto" src="${esc(fotoMaterial(b.foto))}" alt="">` : ""}</article>`).join("")}</div>
-        <div class="banners-pontos">${BANNERS.map((_, i) => `<button type="button" data-banner="${i}" aria-label="Destaque ${i + 1}" aria-pressed="${i === 0}"></button>`).join("")}</div>
+      <section class="chamada">
+        <p class="chamada-marca">Quem junta, vende.</p>
+        <h1>Venda a sua sucata para quem compra perto</h1>
+        <p class="chamada-passos">Anuncie sem preço · receba ofertas · aceite a melhor</p>
+        <div class="chamada-botoes"><a class="btn btn-primario btn-grande" href="#/anunciar">Anunciar minha sucata</a>
+          <a class="btn btn-secundario" href="#/quanto-vale">Quanto vale?</a></div>
       </section>
       <section class="secao" aria-labelledby="cat-t"><h2 id="cat-t" class="sr-only">Categorias</h2>
-        <div class="cats">${CATEGORIAS.map(([n, ids, foto], i) => `<button type="button" class="cat" data-cat="${i}"><span class="cat-foto">${fotoCat(foto)}</span><span>${esc(n)}</span></button>`).join("")}</div>
+        <div class="cats">${CATEGORIAS.slice(0, nCat).map(([n, ids, foto], i) => `<button type="button" class="cat" data-cat="${i}"><span class="cat-foto">${fotoCat(foto)}</span><span>${esc(n)}</span></button>`).join("")}
+          <a class="cat" href="#/anuncios"><span class="cat-foto mais">+</span><span>Outros</span></a></div>
       </section>
       <section class="secao">
-        <div class="secao-cab"><h2>Material à venda perto de você</h2><a href="#/anuncios">Ver tudo ›</a></div>
-        <p class="secao-sub">📍 ${esc(onde)} · ${anuncios.length} anúncio${anuncios.length === 1 ? "" : "s"} até 25 km${anuncios.some((a) => a.exemplo) ? " · por enquanto, exemplos" : ""}</p>
-        ${anuncios.length ? `<div class="prateleira">${anuncios.slice(0, 12).map(miniAnuncio).join("")}</div>` : `<div class="cartao vazio">Nenhum anúncio perto ainda. <a href="#/anunciar">Seja o primeiro a anunciar</a>.</div>`}
+        <div class="secao-cab"><h2>Preço de hoje</h2><a href="#/preco-do-metal">Ver todos ›</a></div>
+        <div class="prateleira precos">${ref.map((r) => `<a class="preco-card" href="#/quanto-vale">${icoMat(r.material_id)}<span><b>${esc(MAT()[r.material_id]?.nome ?? "")}</b>
+          <span class="num">R$ ${reais2(r.minimo)} a ${reais2(r.maximo)}</span><small>o kg</small></span></a>`).join("")}</div>
+      </section>
+      <section class="secao">
+        <div class="secao-cab"><h2>À venda perto de você</h2><a href="#/anuncios">Ver tudo ›</a></div>
+        <p class="secao-sub">📍 ${esc(onde)} · ${anuncios.length} anúncio${anuncios.length === 1 ? "" : "s"}${anuncios.some((a) => a.exemplo) ? " · por enquanto, exemplos" : ""}</p>
+        ${anuncios.length ? `<div class="prateleira">${anuncios.slice(0, 8).map(miniAnuncio).join("")}</div>` : `<div class="cartao vazio">Nenhum anúncio perto ainda. <a href="#/anunciar">Seja o primeiro a anunciar</a>.</div>`}
       </section>
       <section class="secao">
         <div class="secao-cab"><h2>Quem compra perto</h2><a href="#/quem-compra">Ver tudo ›</a></div>
-        ${compradores.length ? `<div class="prateleira redondos">${compradores.slice(0, 12).map(redondo).join("")}</div>` : `<div class="cartao vazio">Ainda sem comprador anunciando perto.</div>`}
+        ${compradores.length ? `<div class="prateleira redondos">${compradores.slice(0, 8).map(redondo).join("")}</div>` : `<div class="cartao vazio">Ainda sem comprador anunciando perto.</div>`}
       </section>
-      <section class="secao">
-        <div class="secao-cab"><h2>Preço da região hoje</h2><a href="#/preco-do-metal">Ver todos e o boletim ›</a></div>
-        <p class="secao-sub">R$ por kg pago no balcão. Não mostra o preço de nenhum comprador.</p>
-        <div class="prateleira precos">${ref.map((r) => `<a class="preco-card" href="#/quanto-vale">${selo(r.material_id)}<span><b>${esc(MAT()[r.material_id]?.nome ?? "")}</b>
-          <span class="num">${reais2(r.minimo)} a ${reais2(r.maximo)}</span></span></a>`).join("")}</div>
-      </section>
-      <section class="secao como">
-        <h2>Como funciona</h2>
-        <ol class="como-passos"><li><span class="num-placa">1</span><b>Anuncie sem preço</b><small>Material, peso e foto. Leva um minuto.</small></li>
-          <li><span class="num-placa">2</span><b>Receba ofertas</b><small>Quem compra perto manda a oferta só para você.</small></li>
-          <li><span class="num-placa">3</span><b>Aceite a melhor</b><small>O WhatsApp aparece e vocês combinam a retirada.</small></li></ol>
-      </section>
+      <p class="rodape-links"><a href="#/anunciar">Empresa com resíduo ou madeira? Anuncie aqui</a> · <a href="#/anuncios">Tem ferro-velho? Veja o material à venda</a></p>
       <p class="assinatura">Sucata Livre é um produto <a href="https://capacitycase.com.br" target="_blank" rel="noopener">Capacity Case</a></p>`;
     el.addEventListener("click", (e) => {
       const c = e.target.closest("[data-cat]");
-      if (c) { const [n, ids] = CATEGORIAS[Number(c.dataset.cat)]; buscar(n, ids); return; }
-      const p = e.target.closest("[data-banner]");
-      if (p) irBanner(Number(p.dataset.banner));
+      if (c) { const [n, ids] = CATEGORIAS[Number(c.dataset.cat)]; buscar(n, ids); }
     });
-    // banner que passa sozinho a cada 6 s (para quando a pessoa mexe nele)
-    const trilho = $("#banners", el);
-    const pontos = $$("[data-banner]", el);
-    const atual = () => Math.round(trilho.scrollLeft / trilho.clientWidth);
-    function irBanner(i) { trilho.scrollTo({ left: i * trilho.clientWidth, behavior: "smooth" }); }
-    trilho.addEventListener("scroll", () => pontos.forEach((b, i) => b.setAttribute("aria-pressed", String(i === atual()))), { passive: true });
-    clearInterval(rodaBanner);
-    if (!matchMedia("(prefers-reduced-motion: reduce)").matches)
-      rodaBanner = setInterval(() => { if (!document.body.contains(trilho)) return clearInterval(rodaBanner); irBanner((atual() + 1) % BANNERS.length); }, 6000);
-    ["pointerdown", "touchstart"].forEach((ev) => trilho.addEventListener(ev, () => clearInterval(rodaBanner), { passive: true, once: true }));
   };
 
   // ── página pública do comprador: confiança antes do negócio ─────────────
@@ -1240,6 +1221,7 @@
   };
 
   // ── quem vende: anunciar em 3 passos ────────────────────────────────────
+  const PRINCIPAIS = [["Latinha", 101], ["Cobre e fio", 104], ["Ferro", 201], ["Papelão", 301], ["PET", 401]];
   TELAS.anunciar = async (el) => {
     // aberta: a pessoa monta o anúncio antes de ter cadastro; o celular só é pedido no "Publicar"
     await carregarCatalogo();
@@ -1250,17 +1232,24 @@
     const { data: riscos } = await sb.from("slv_itens_risco").select("*").order("id");
     const M = MAT();
 
+    // a lista completa fica aberta quando a pessoa pediu ou já marcou algo fora dos 5 principais
+    const verTudoAtual = () => R.verTudo || Object.keys(R.itens).map(Number).some((id) => !PRINCIPAIS.some(([, i]) => i === id));
     function desenhar() {
       guardarRascunho(R);
       const cab = `<div class="passos-barra" aria-label="Passo ${R.passo} de 3">${[1, 2, 3].map((i) => `<span class="${i <= R.passo ? "on" : ""}"></span>`).join("")}</div>
         <h1>${["O que você tem?", "Fotos, peso e estado", "Onde está o material?"][R.passo - 1]}</h1>`;
       if (R.passo === 1) {
         const comRisco = Object.keys(R.itens).map(Number).filter((id) => M[id]?.pede_check_risco);
-        el.innerHTML = cab + `<p class="suave">Toque em tudo o que você juntou. Pode escolher mais de um.</p>
-          ${estado.familias.map((f) => `<div class="familia"><h2>${esc(f.icone)} ${esc(f.nome)}</h2><div class="materiais">
-            ${estado.materiais.filter((m) => m.familia_id === f.id).map((m) =>
-              `<button type="button" class="material" data-mat="${m.id}" aria-pressed="${m.id in R.itens}">${selo(m.id)}${esc(m.nome)}</button>`).join("")}
-          </div></div>`).join("")}
+        // primeiro os 5 que quase todo mundo tem, grandes e com foto; o resto só abre se a pessoa pedir
+        const verTudo = verTudoAtual();
+        el.innerHTML = cab + `<p class="suave">Toque no que você juntou. Pode escolher mais de um.</p>
+          <div class="principais">${PRINCIPAIS.map(([n, id]) => `<button type="button" class="principal" data-mat="${id}" aria-pressed="${id in R.itens}">
+            ${fotoMaterial(id) ? `<img src="${esc(fotoMaterial(id))}" alt="" loading="lazy">` : ""}<span>${esc(n)}</span></button>`).join("")}
+            <button type="button" class="principal outro" data-ver-tudo aria-expanded="${verTudo}"><span class="mais">+</span><span>Outro material</span></button></div>
+          ${verTudo ? estado.familias.map((f) => `<div class="familia"><h2>${esc(f.icone)} ${esc(f.nome)}</h2><div class="materiais">
+            ${estado.materiais.filter((m) => m.familia_id === f.id && !PRINCIPAIS.some(([, i]) => i === m.id)).map((m) =>
+              `<button type="button" class="material" data-mat="${m.id}" aria-pressed="${m.id in R.itens}">${esc(m.nome)}</button>`).join("")}
+          </div></div>`).join("") : ""}
           ${comRisco.length ? `<div class="cartao alerta"><h3>Tem algum destes no meio?</h3>
             <p class="suave">${esc((riscos ?? []).map((r) => r.nome).join(" · "))}</p>
             <div class="chips"><button type="button" class="chip" data-risco="nao" aria-pressed="${R.risco === false}">Não tem nenhum</button>
@@ -1280,7 +1269,7 @@
               <label class="btn btn-primario btn-foto">📷 Tirar foto<input type="file" id="foto" accept="image/*" capture="environment" hidden></label>
               <label class="btn btn-secundario btn-foto">🖼 Da galeria<input type="file" id="foto-galeria" accept="image/*" multiple hidden></label></div>` : ""}</div>
           <div class="cartao"><h3>Quanto, mais ou menos?</h3><p class="suave">Não precisa ser exato. O comprador confere na balança.</p>
-            ${Object.keys(R.itens).map((id) => `<div class="linha-preco"><span class="ico">${selo(id)}</span>
+            ${Object.keys(R.itens).map((id) => `<div class="linha-preco">${icoMat(id)}
             <label for="kg${id}" style="margin:0">${esc(M[id].nome)}</label>
             <span class="kg"><input type="text" id="kg${id}" data-kg="${id}" inputmode="decimal" value="${R.itens[id] || ""}" placeholder="0"></span></div>`).join("")}
             <div class="estimativa" id="estimativa">${textoEstimativa(itensR())}</div></div>
@@ -1338,6 +1327,7 @@
       if (t.dataset.car) { guardarPesos(); guardarCampos(); R[t.dataset.car] = R[t.dataset.car] === t.dataset.v ? null : t.dataset.v; desenhar(); return; }
       if (t.dataset.tirarFoto) { guardarPesos(); guardarCampos(); R.fotos.splice(Number(t.dataset.tirarFoto), 1); desenhar(); return; }
       if (t.dataset.mat) { const id = t.dataset.mat; if (id in R.itens) delete R.itens[id]; else R.itens[id] = 0; desenhar(); return; }
+      if (t.hasAttribute("data-ver-tudo")) { R.verTudo = !verTudoAtual(); desenhar(); return; }
       if (t.dataset.risco) { R.risco = t.dataset.risco === "sim"; if (!R.risco) R.declarou = false; desenhar(); return; }
       if (t.dataset.busca) { R.pode_buscar = t.dataset.busca === "1"; desenhar(); return; }
       if (t.dataset.ir) {

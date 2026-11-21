@@ -1,6 +1,15 @@
 // Sucata Livre · o que mudou em cada versão (aparece depois que a pessoa clica em Atualizar).
 window.NOVIDADES = [
   {
+    versao: "2026-11-21-1",
+    data: "21/11/2026",
+    itens: [
+      "Página de entrada mais limpa: um botão grande para anunciar, o preço de hoje e o que tem perto, tudo numa tela.",
+      "Anunciar ficou mais fácil: Latinha, Cobre e fio, Ferro, Papelão e PET em botões grandes com foto. O resto fica em Outro material.",
+      "Sem códigos difíceis: cada material aparece com a foto dele.",
+    ],
+  },
+  {
     versao: "2026-11-05-1",
     data: "05/11/2026",
     itens: [
