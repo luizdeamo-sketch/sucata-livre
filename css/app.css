@@ -408,7 +408,7 @@ textarea { min-height: 110px; resize: vertical; }
 .passos-barra { display: flex; gap: 6px; margin-bottom: 14px; }
 .passos-barra span { flex: 1; height: 6px; border-radius: 999px; background: var(--linha); }
 .passos-barra span.on { background: var(--texto); }
-.passo .num-placa { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 12px; background: var(--marca); color: var(--sobre-marca); font: 900 2rem/1 var(--f-titulo); margin-bottom: 10px; }
+.passo .num-placa, .num-placa { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 12px; background: var(--marca); color: var(--sobre-marca); font: 900 2rem/1 var(--f-titulo); margin-bottom: 10px; }
 .linha-preco .kg { position: relative; }
 .linha-preco .kg input { padding-right: 36px; text-align: right; font-family: var(--f-num); }
 .linha-preco .kg::after { content: "kg"; position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--suave); }
@@ -749,3 +749,41 @@ body { background: var(--fundo); }
   /* no celular a barra de baixo já tem Início, Comprar, Anunciar e Vender: o menu de cima não repete */
   .nav-topo a[data-tela=inicio], .nav-topo a[data-tela=anuncios], .nav-topo a[data-tela=quem-compra], .nav-topo a[data-tela=anunciar] { display: none; }
 }
+
+/* ── 21/11: avisos de negócio perto (sino) e movimento da região ── */
+.btn-sino { position: relative; display: inline-grid; place-items: center; width: 42px; height: 42px; border-radius: 12px; color: #fff; margin-right: 6px; }
+.btn-sino svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.btn-sino:hover { background: rgba(255,255,255,.1); }
+.btn-sino .badge { position: absolute; top: 2px; right: 2px; }
+.topo-nome { display: flex; align-items: center; }
+.avisos-lista { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 8px; }
+.avisos-lista a { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; padding: 12px 14px; background: #fff; border: 1px solid #dcded7; border-radius: 14px; color: var(--texto); text-decoration: none; }
+.avisos-lista li.novo a { border-color: var(--texto); background: var(--marca-claro); }
+.aviso-ico { font-size: 1.6rem; }
+.aviso-txt b { display: block; }
+.aviso-txt small, .aviso-quando { color: var(--suave); font-size: .85rem; }
+.movimento { margin: 4px 0 0; color: #e7e9ec; font-size: .95rem; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.movimento b { color: #fff; }
+.pulso { width: 10px; height: 10px; border-radius: 50%; background: #3fd17a; box-shadow: 0 0 0 0 rgba(63,209,122,.6); animation: pulso 2s infinite; flex: none; }
+@keyframes pulso { 70% { box-shadow: 0 0 0 10px rgba(63,209,122,0); } 100% { box-shadow: 0 0 0 0 rgba(63,209,122,0); } }
+@media (prefers-reduced-motion: reduce) { .pulso { animation: none; } }
+
+/* ── 21/11: Como funciona no molde B2Blue ── */
+.como-4 { list-style: none; margin: 0 0 18px; padding: 0; display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+.como-4 li { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; align-items: center; background: #fff; border: 1px solid #dcded7; border-radius: 14px; padding: 14px; }
+.como-4 .num-placa { grid-row: span 2; margin: 0; width: 44px; height: 44px; font-size: 1.6rem; }
+.como-4 small, .para-quem small, .confianca small { color: var(--suave); }
+.antes-depois { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); margin-bottom: 18px; }
+.antes-depois .rot { margin: 0; font: 800 .72rem/1 var(--f-texto); letter-spacing: .14em; text-transform: uppercase; }
+.antes-depois ul { margin: 6px 0 0; padding-left: 1.2em; }
+.antes .rot { color: #a33b2a; } .depois .rot { color: #1f7a45; }
+.depois { border-color: #1f7a45; }
+.para-quem { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); margin-bottom: 18px; }
+.para-quem a { display: grid; gap: 4px; color: var(--texto); text-decoration: none; }
+.para-quem span { font-size: 1.8rem; }
+.confianca { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-bottom: 18px; }
+.confianca div { display: grid; gap: 2px; background: #fff; border: 1px solid #dcded7; border-radius: 12px; padding: 12px; }
+.faq { display: grid; gap: 8px; margin-bottom: 18px; }
+.faq details { background: #fff; border: 1px solid #dcded7; border-radius: 12px; padding: 12px 14px; }
+.faq summary { font-weight: 800; cursor: pointer; }
+.faq p { margin: 8px 0 0; }

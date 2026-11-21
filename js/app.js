@@ -530,6 +530,7 @@
     const logado = !!estado.sessao;
     // a gaveta "Minha conta": só o que é de quem entrou. A vitrine fica na faixa de cima (#nav-topo).
     const conta = [];
+    if (logado && (estado.vendedor || estado.comprador)) conta.push(["avisos", "Avisos", "sino"]);
     if (estado.vendedor) conta.push(["meus-anuncios", "Meus anúncios", "meus"], ["cadastro", "Meu cadastro", "pessoa"]);
     if (estado.comprador) conta.push(["inicio-comprador", "Minha empresa", "empresa"], ["minhas-ofertas", "Minhas ofertas", "oferta"],
       ["anunciar-compra", "Anunciar que compro", "megafone"], ["minhas-procuras", "Meus anúncios de compra", "meus"], ["o-que-compro", "O que compro", "caixa"]);
@@ -537,7 +538,7 @@
     if (logado && (estado.vendedor || estado.comprador)) conta.push(["avaliar", "Avaliar negócios", "oferta"]);
     if (logado) conta.push(["sugestoes", "Sugestões", "conversa"]);
     if (estado.operador) conta.push(["operador", "Operador", "torre"]);
-    const item = ([t, r, i]) => `<a href="#/${t}" data-tela="${t}"><span class="mi"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONE[i] ?? ""}</svg></span>${r}${t === "sugestoes" && estado.respostas ? `<span class="badge">${estado.respostas}</span>` : ""}${t === "avaliar" && estado.paraAvaliar ? `<span class="badge">${estado.paraAvaliar}</span>` : ""}</a>`;
+    const item = ([t, r, i]) => `<a href="#/${t}" data-tela="${t}"><span class="mi"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONE[i] ?? ""}</svg></span>${r}${t === "avisos" && estado.avisosNovos ? `<span class="badge">${estado.avisosNovos}</span>` : ""}${t === "sugestoes" && estado.respostas ? `<span class="badge">${estado.respostas}</span>` : ""}${t === "avaliar" && estado.paraAvaliar ? `<span class="badge">${estado.paraAvaliar}</span>` : ""}</a>`;
     const grupo = (nome, lista) => lista.length ? `<p class="menu-grupo">${nome}</p>${lista.map(item).join("")}` : "";
     $("#menu").innerHTML = `<div class="menu-cab"><b>${esc(estado.eu?.nome ?? "Minha conta")}</b><button type="button" class="menu-fechar" aria-label="Fechar">✕</button></div>`
       + grupo(estado.comprador && !estado.vendedor ? "Minha empresa" : "Minha conta", conta)
@@ -546,7 +547,8 @@
     $("#btn-sair")?.addEventListener("click", async () => { await sb.auth.signOut({ scope: "local" }); location.hash = "#/"; location.reload(); });
     const avisos = (estado.respostas ?? 0) + (estado.paraAvaliar ?? 0);
     $("#topo-nome").innerHTML = logado
-      ? `<button type="button" class="btn-conta" id="btn-conta"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONE.pessoa}</svg><span>Minha conta</span>${avisos ? `<span class="badge">${avisos}</span>` : ""}</button>`
+      ? `<a class="btn-sino" href="#/avisos" aria-label="Avisos${estado.avisosNovos ? `: ${estado.avisosNovos} novos` : ""}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4zM10 20a2 2 0 0 0 4 0"/></svg>${estado.avisosNovos ? `<span class="badge">${estado.avisosNovos}</span>` : ""}</a>`
+        + `<button type="button" class="btn-conta" id="btn-conta"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONE.pessoa}</svg><span>Minha conta</span>${avisos ? `<span class="badge">${avisos}</span>` : ""}</button>`
       : `<a class="btn btn-primario btn-topo" href="#/entrar">Entrar</a>`;
     $("#btn-conta")?.addEventListener("click", () => abrirMenu($("#menu").hidden));
     $(".menu-fechar")?.addEventListener("click", () => abrirMenu(false));
@@ -581,6 +583,7 @@
     info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5h.01"/>',
     celular: '<rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/>',
     chave: '<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3M14 9l2 2"/>',
+    sino: '<path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4zM10 20a2 2 0 0 0 4 0"/>',
     sair: '<path d="M14 4h5v16h-5M10 8l-4 4 4 4M6 12h11"/>',
   };
   function montarBarra() {
@@ -748,12 +751,15 @@
     const redondo = (c) => `<a class="redondo" href="#/comprador?id=${esc(c.comprador_id)}"><span class="avatar">${esc(c.nome.replace(/^Exemplo · /, "").split(" ").filter((p) => p.length > 2).slice(0, 2).map((p) => p[0]).join("").toUpperCase())}</span>
         <b>${esc(c.nome)}</b><small>≈ ${km(c.distancia_km)} km · ${esc(c.cidade ?? "")}</small></a>`;
     const ref = BOLETIM_MATERIAIS.map((id) => estado.ref?.[id]).filter(Boolean).slice(0, 5);
+    const { data: movData } = await sb.rpc("slv_movimento_perto", { p_lat: l.lat, p_lng: l.lng, p_raio_km: 25 }).then((r) => r, () => ({ data: null }));
+    const mov = movData?.[0];
+    const movHTML = mov && (mov.anuncios_7d || mov.compradores) ? `<p class="movimento"><span class="pulso" aria-hidden="true"></span>Perto de você: <b>${mov.anuncios_7d} anúncio${mov.anuncios_7d === 1 ? "" : "s"} novo${mov.anuncios_7d === 1 ? "" : "s"}</b> nos últimos 7 dias e <b>${mov.compradores} comprador${mov.compradores === 1 ? "" : "es"}</b> comprando agora.</p>` : "";
     const nCat = matchMedia("(max-width: 760px)").matches ? 5 : 9;
     el.innerHTML = `
       <section class="chamada">
         <p class="chamada-marca">Quem junta, vende.</p>
         <h1>Venda a sua sucata para quem compra perto</h1>
-        <p class="chamada-passos">Anuncie sem preço · receba ofertas · aceite a melhor</p>
+        <p class="chamada-passos">Anuncie sem preço · receba ofertas · aceite a melhor</p>${movHTML}
         <div class="chamada-botoes"><a class="btn btn-primario btn-grande" href="#/anunciar">Anunciar minha sucata</a>
           <a class="btn btn-secundario" href="#/quanto-vale">Quanto vale?</a></div>
       </section>
@@ -892,7 +898,7 @@
       <p><a href="#/quem-compra">← Quem compra perto</a></p>
       <div class="cab"><h1 style="margin:0">${esc(c.nome)}</h1></div>
       ${c.exemplo ? "" : `<div id="rep-comprador"><span data-rep-u="${esc(id)}"></span></div>`}
-      <p class="linha-denuncia">${botaoDenuncia("comprador", id, c.exemplo)}</p>
+      <p class="linha-denuncia">${c.exemplo ? "" : `<a class="link-zap" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(`${c.nome} compra ${nomesMateriais(mats)}. Veja horário e mande o seu material pelo Sucata Livre: ${location.origin}${location.pathname}#/comprador?id=${id}`)}">Mandar esta página no WhatsApp</a> · `}${botaoDenuncia("comprador", id, c.exemplo)}</p>
       <div class="tags" style="margin:8px 0 6px">${c.exemplo ? `<span class="etiqueta exemplo">Exemplo</span>` : `<span class="etiqueta ok">CNPJ verificado</span>`}
         ${ab === null ? "" : `<span class="etiqueta ${ab ? "ok" : "ruim"}">${ab ? "Aberto agora" : "Fechado agora"}</span>`}
         ${c.faz_coleta || busca > 0 ? `<span class="etiqueta">Busca no local${busca > 0 ? ` até ${String(busca).replace(".0", "")} km` : ""}</span>` : `<span class="etiqueta">Só no balcão</span>`}
@@ -933,27 +939,55 @@
     });
   };
 
+  // Como funciona (21/11, no molde da B2Blue: passos, antes e depois, para quem, confiança e perguntas)
+  const PERGUNTAS_FAQ = [
+    ["Quanto custa?", "Anunciar, receber oferta e ver o preço da sucata é grátis no lançamento."],
+    ["Preciso pôr preço no anúncio?", "Não. Você diz o que tem e o peso aproximado. Quem compra manda a oferta e você escolhe. Para saber se a oferta está boa, o Sucata Livre mostra o preço pago na sua região."],
+    ["Quem vê o meu telefone?", "Só o comprador cuja oferta você aceitar. No anúncio aparece o bairro, nunca a rua nem o número."],
+    ["E se ninguém aparecer?", "Quando um comprador perto anunciar que compra o seu material, você recebe um aviso no sino, lá em cima. Não precisa ficar olhando."],
+    ["Posso anunciar qualquer material?", "Sucata, papel, plástico, resíduo e madeira, sim. Material que pode ser furtado (fio de rede, tampa de bueiro, placa de rua) pede declaração de origem, e quem vê algo estranho pode denunciar. Três denúncias tiram o anúncio do ar."],
+    ["Tenho uma empresa com resíduo. Muda alguma coisa?", "Anuncie do mesmo jeito. Óleo lubrificante, pneu e resíduo da indústria só recebem oferta de comprador com licença ambiental, como manda a lei."],
+    ["Sou ferro-velho. Como compro aqui?", "Cadastre a empresa pelo CNPJ (a gente confere na Receita), anuncie o que você compra e receba aviso quando sair material perto."],
+  ];
   TELAS.apresentacao = async (el) => {
     el.innerHTML = `
-      <h1 class="chamada-marca">Quem junta,<br>vende.</h1>
-      <p style="font-size:1.2rem;line-height:1.5;max-width:36em">Anuncie sua sucata, resíduo ou madeira sem pôr preço. Os ferros-velhos e recicladoras perto de você mandam uma oferta que <b>só você vê</b>, e você aceita a melhor.</p>
-      <div class="passos">
-        <div class="passo"><span class="num-placa" aria-hidden="true">1</span><h3>Anuncie o que juntou</h3><p class="suave">Toque nos materiais, diga o peso aproximado e tire uma foto. Leva um minuto.</p></div>
-        <div class="passo"><span class="num-placa" aria-hidden="true">2</span><h3>Receba ofertas de quem está perto</h3><p class="suave">Cada comprador manda a oferta só para você. Nenhum vê a oferta do outro, e você vê se está acima ou abaixo do preço da região.</p></div>
-        <div class="passo"><span class="num-placa" aria-hidden="true">3</span><h3>Aceite a melhor e combine</h3><p class="suave">Seu telefone só aparece para quem você aceitar. Pesem na balança e recebam o combinado.</p></div>
+      <section class="chamada"><p class="chamada-marca">Como funciona</p>
+        <h1>Do anúncio ao negócio fechado em 4 passos</h1>
+        <p class="chamada-passos">Você não precisa entender de internet: o Sucata Livre mostra cada passo.</p></section>
+      <ol class="como-4">
+        <li><span class="num-placa">1</span><b>Entre com o Google ou o Facebook</b><small>Sem senha nova. Depois, só nome, WhatsApp, CEP e CPF ou CNPJ.</small></li>
+        <li><span class="num-placa">2</span><b>Anuncie o que juntou, sem preço</b><small>Toque no material, diga o peso e tire uma foto. Leva um minuto.</small></li>
+        <li><span class="num-placa">3</span><b>Receba ofertas e avisos</b><small>Quem compra perto manda a oferta só para você, e o sino avisa quando aparece comprador novo.</small></li>
+        <li><span class="num-placa">4</span><b>Aceite a melhor e combine</b><small>O WhatsApp aparece para os dois. Pesem na balança e recebam o combinado.</small></li>
+      </ol>
+      <section class="antes-depois">
+        <div class="cartao antes"><p class="rot">Antes</p><h3>Vender sucata dava trabalho</h3><ul>
+          <li>Rodar de ferro-velho em ferro-velho com o material</li><li>Aceitar o preço do balcão sem saber se é justo</li><li>Não saber quem compra perto, nem por quanto</li></ul></div>
+        <div class="cartao depois"><p class="rot">Com o Sucata Livre</p><h3>Quem compra vem até você</h3><ul>
+          <li>Os compradores perto mandam oferta, e você escolhe</li><li>Você vê o preço da região antes de aceitar</li><li>O sino avisa quando aparece comprador novo</li></ul></div>
+      </section>
+      <h2>Para quem é</h2>
+      <div class="para-quem">
+        <a class="cartao" href="#/anunciar"><span aria-hidden="true">🛒</span><b>Catador e quem junta em casa</b><small>Latinha, papelão, PET, fio. Anuncie e receba oferta.</small></a>
+        <a class="cartao" href="#/anunciar"><span aria-hidden="true">🚚</span><b>Sucateiro e pequeno depósito</b><small>Venda o lote para quem paga mais perto.</small></a>
+        <a class="cartao" href="#/anunciar"><span aria-hidden="true">🏭</span><b>Empresa com resíduo ou madeira</b><small>Óleo, vidro, pneu, pallet, poda: quem compra retira.</small></a>
+        <a class="cartao" href="#/anuncios"><span aria-hidden="true">🏪</span><b>Ferro-velho e recicladora</b><small>Veja o material à venda perto e anuncie o que compra.</small></a>
       </div>
-      <div class="cartao"><h3>Quer vender agora mesmo?</h3>
-        <p class="suave">Digite seu CEP e veja no mapa quem compra perto de você, com horário e WhatsApp.</p></div>
-      <div class="cartao"><h3>É comprador (ferro-velho, depósito, recicladora)?</h3>
-        <p class="suave">Cadastre a empresa pelo CNPJ, veja os anúncios perto e anuncie o que você compra: quem vende perto acha você. Grátis no lançamento.</p></div>
-      <p class="suave">${brasil() ? "Funciona no Brasil inteiro: tudo é pelo seu CEP, do que está perto de você." : `Começamos por ${esc(textoRegiao())}. Fora dela, você entra na lista de espera, e o Sucata Livre já está pronto para o Brasil inteiro.`}</p>
-      <div class="acoes">
-        <a class="btn btn-primario" href="#/anuncios">Ver os anúncios</a>
-        ${estado.sessao ? "" : `<a class="btn btn-secundario" href="#/entrar">Entrar ou criar cadastro</a>`}
+      <h2>Feito para negociar tranquilo</h2>
+      <div class="confianca">
+        <div><b>🔒 Oferta só para você</b><small>Um comprador não vê a oferta do outro.</small></div>
+        <div><b>📵 Telefone guardado</b><small>Só aparece para quem você aceitar.</small></div>
+        <div><b>⭐ Avaliação dos dois lados</b><small>A nota só aparece quando os dois avaliam.</small></div>
+        <div><b>🚩 Denúncia</b><small>Material furtado ou golpe sai do ar.</small></div>
+        <div><b>🧾 CNPJ conferido</b><small>Todo comprador passa pela Receita.</small></div>
+        <div><b>🛡️ Seus dados sob a LGPD</b><small>CPF e CNPJ só a equipe vê.</small></div>
       </div>
-      <p class="suave" style="margin-top:18px"><a href="#/creditos">Créditos das fotos ilustrativas</a></p>
-      <div>
-      </div>`;
+      <h2>Perguntas frequentes</h2>
+      <div class="faq">${PERGUNTAS_FAQ.map(([p, r]) => `<details><summary>${esc(p)}</summary><p>${esc(r)}</p></details>`).join("")}</div>
+      <p class="suave">${brasil() ? "Funciona no Brasil inteiro: tudo é pelo seu CEP." : `Começamos por ${esc(textoRegiao())}. Fora dela, você entra na lista de espera.`}</p>
+      <div class="acoes"><a class="btn btn-primario btn-grande" href="#/anunciar">Anunciar minha sucata</a>
+        ${estado.sessao ? "" : `<a class="btn btn-secundario" href="#/entrar">Entrar ou criar cadastro</a>`}</div>
+      <p class="suave" style="margin-top:18px"><a href="#/creditos">Créditos das fotos ilustrativas</a></p>`;
   };
 
   // ── entrar: Google ou Facebook, sem senha nova ──────────────────────────
@@ -1873,6 +1907,30 @@
     estado.paraAvaliar = (data ?? []).length;
     return estado.paraAvaliar;
   }
+  // avisos de negócio perto (v15): o comprador fica sabendo do anúncio novo; quem vende, do comprador novo
+  async function contarAvisos() {
+    if (!estado.sessao || !estado.eu) { estado.avisosNovos = 0; return 0; }
+    const { count } = await sb.from("slv_avisos").select("id", { count: "exact", head: true }).is("lido_em", null);
+    estado.avisosNovos = count ?? 0;
+    return estado.avisosNovos;
+  }
+  setInterval(() => { if (document.visibilityState === "visible" && estado.sessao) contarAvisos().then(() => montarMenu()).catch(() => {}); }, 120000);
+  TELAS.avisos = async (el) => {
+    const { data, error } = await sb.rpc("slv_meus_avisos");
+    if (error) throw error;
+    const lista = data ?? [];
+    const quando = (d) => { const m = Math.round((Date.now() - new Date(d)) / 60000);
+      return m < 60 ? `há ${Math.max(m, 1)} min` : m < 1440 ? `há ${Math.round(m / 60)} h` : new Date(d).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }); };
+    el.innerHTML = `<h1>Avisos</h1>
+      <p class="suave">${estado.comprador ? "Quando sair anúncio perto com o que a sua empresa compra, ele aparece aqui." : "Quando aparecer comprador perto do material do seu anúncio, ele aparece aqui."} Ninguém precisa ficar procurando.</p>
+      ${lista.length ? `<ul class="avisos-lista">${lista.map((a) => `<li class="${a.lido ? "" : "novo"}"><a href="${esc(a.link)}">
+          <span class="aviso-ico" aria-hidden="true">${a.tipo === "anuncio_perto" ? "📦" : "🏪"}</span>
+          <span class="aviso-txt"><b>${esc(a.titulo)}</b><small>${esc(a.detalhe ?? "")}</small></span>
+          <span class="aviso-quando">${quando(a.criado_em)}</span></a></li>`).join("")}</ul>`
+        : `<div class="cartao vazio"><h3>Nenhum aviso ainda</h3><p>${estado.comprador ? "Anuncie o que a sua empresa compra e a gente avisa quando sair material perto." : "Anuncie a sua sucata e a gente avisa quando aparecer comprador perto."}</p>
+            <a class="btn btn-primario" href="#/${estado.comprador ? "anunciar-compra" : "anunciar"}">${estado.comprador ? "Anunciar o que compro" : "Anunciar minha sucata"}</a></div>`}`;
+    if (lista.some((a) => !a.lido)) { await sb.rpc("slv_marcar_avisos_lidos"); estado.avisosNovos = 0; montarMenu(); }
+  };
   const faixaAvaliar = () => estado.paraAvaliar
     ? `<a class="faixa-avaliar" href="#/avaliar">⭐ Você tem ${estado.paraAvaliar} negócio${estado.paraAvaliar > 1 ? "s" : ""} para avaliar. Leva 10 segundos e ajuda todo mundo a negociar com confiança.</a>` : "";
   const PERGUNTAS = {
@@ -2041,7 +2099,7 @@
   // ── início ───────────────────────────────────────────────────────────────
   async function aoEntrar() {
     await Promise.all([carregarCatalogo(), carregarPerfil()]);
-    await contarParaAvaliar().catch(() => {});
+    await Promise.all([contarParaAvaliar().catch(() => {}), contarAvisos().catch(() => {})]);
     montarMenu();
     window.Acomp.mostrarBotao(true);
   }

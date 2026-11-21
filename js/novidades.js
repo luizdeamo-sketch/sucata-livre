@@ -1,6 +1,16 @@
 // Sucata Livre · o que mudou em cada versão (aparece depois que a pessoa clica em Atualizar).
 window.NOVIDADES = [
   {
+    versao: "2026-11-21-2",
+    data: "21/11/2026",
+    itens: [
+      "Avisos: o sino lá em cima avisa quando aparece comprador perto do material do seu anúncio. Para quem compra, avisa quando sai anúncio perto com o que a empresa compra.",
+      "A página de entrada mostra o movimento perto de você: anúncios novos da semana e quantos compradores estão comprando.",
+      "Como funciona novo: 4 passos, para quem é, como você fica protegido e as perguntas mais comuns.",
+      "Comprador: mande a página da sua empresa no WhatsApp com um toque.",
+    ],
+  },
+  {
     versao: "2026-11-21-1",
     data: "21/11/2026",
     itens: [
